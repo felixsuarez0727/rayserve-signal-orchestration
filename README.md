@@ -50,13 +50,13 @@ Each HDF5 file contains:
 
 ```mermaid
 flowchart TD
-    A[Input Signal (2, L)] --> B[Shared Feature Extractor: Conv1D+BN+ReLU, MaxPool+Dropout]
+    A[Input (2,L)] --> B[Feature Extractor]
     B --> C{Shared Features}
-    C --> D[Classification Head: Fully Connected]
-    C --> E[SNR Head: Fully Connected]
-    D --> F[Softmax (n classes)]
+    C --> D[Classification Head]
+    C --> E[SNR Head]
+    D --> F[Softmax]
     E --> G[Scalar SNR]
-    F -->|WiFi| H[Opportunistic Spectrum Sensing: Welch PSD, Occupancy, Peak Freq]
+    F -->|WiFi| H[Opportunistic Spectrum Sensing]
 ```
 
 ### Loss Function

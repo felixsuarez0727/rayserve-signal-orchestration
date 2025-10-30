@@ -50,9 +50,9 @@ Each HDF5 file contains:
 
 ```mermaid
 flowchart TD
-  A[Input Signal (2, L)] --> B[Shared Feature Extractor\nConv1D + BN + ReLU + MaxPool + Dropout]
-  B --> C[Classification Head\nFC → Softmax (n classes)]
-  B --> D[SNR Head\nFC → Scalar (dB)]
+  A["Input Signal (2, L)"] --> B["Shared Feature Extractor<br/>Conv1D + BN + ReLU + MaxPool + Dropout"]
+  B --> C["Classification Head<br/>FC → Softmax (n classes)"]
+  B --> D["SNR Head<br/>FC → Scalar (dB)"]
 ```
 
 ### Loss Function

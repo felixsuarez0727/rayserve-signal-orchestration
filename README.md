@@ -375,18 +375,6 @@ This project enables research in:
 4. Add tests
 5. Submit a pull request
 
-## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🙏 Acknowledgments
-
-- Northeastern University for the SDR WiFi Dataset
-- Ray team for the excellent Ray Serve framework
-- PyTorch team for the deep learning framework
-
----
-
-**Note**: This project is for research purposes. Ensure compliance with local regulations when working with wireless signals.
 
 

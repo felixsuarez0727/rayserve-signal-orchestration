@@ -48,24 +48,17 @@ Each HDF5 file contains:
 
 ### Multitask Neural Network
 
-```
-Input Signal (2, 128)
-        ↓
-┌─────────────────────┐
-│  Feature Extractor  │
-│  (Shared Layers)    │
-│  Conv1D + BN + ReLU │
-│  MaxPool + Dropout  │
-└─────────────────────┘
-        ↓
-    Features
-        ↓
-┌─────────────┬─────────────┐
-│             │             │
-▼             ▼             ▼
-Classification Head    SNR Head
-Fully Connected    Fully Connected
-Softmax Output    Scalar Output
+```mermaid
+flowchart TD
+    A[Input Signal (2, L)] --> B[Shared Feature Extractor\nConv1D + BN + ReLU\nMaxPool + Dropout]
+    B --> C{Shared Features}
+    C --> D[Classification Head\nFully Connected]
+    C --> E[SNR Head\nFully Connected]
+    D --> F[Softmax (n classes)]
+    E --> G[Scalar SNR]
+
+    %% Opportunistic spectrum sensing branch
+    F -->|if predicted == WiFi| H[Opportunistic Spectrum Sensing\nWelch PSD + Occupancy + Peak Freq]
 ```
 
 ### Loss Function

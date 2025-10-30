@@ -1,0 +1,106 @@
+# Configuration file for Signal Orchestration Project
+# Multitask Neural Network for Wireless Signal Classification and SNR Estimation
+
+# Dataset Configuration
+dataset:
+  data_dir: "processed"
+  train_file: "sdr_wifi_train.h5"
+  val_file: "sdr_wifi_val.h5"
+  test_file: "sdr_wifi_test.h5"
+  signal_length: 128
+  num_classes: 4
+  class_names: ["wifi", "lte", "ble", "noise"]
+  
+# Model Configuration
+model:
+  input_channels: 2  # I and Q channels
+  signal_length: 128
+  num_classes: 4
+  feature_extractor:
+    conv_layers: [32, 64, 128, 256]
+    kernel_sizes: [7, 5, 3, 3]
+    dropout_rate: 0.3
+    pool_sizes: [2, 2, 2, 2]
+  
+  classification_head:
+    hidden_dims: [512, 256]
+    dropout_rate: 0.5
+    
+  snr_head:
+    hidden_dims: [256, 128]
+    dropout_rate: 0.3
+    
+  loss_weights:
+    classification_weight: 1.0
+    snr_weight: 0.5  # alpha parameter
+
+# Training Configuration
+training:
+  batch_size: 32
+  learning_rate: 0.001
+  num_epochs: 100
+  weight_decay: 1e-4
+  scheduler:
+    type: "cosine"
+    warmup_epochs: 10
+    
+  early_stopping:
+    patience: 15
+    min_delta: 0.001
+    
+  checkpoint:
+    save_best: true
+    save_last: true
+    checkpoint_dir: "checkpoints"
+    
+# Evaluation Configuration
+evaluation:
+  metrics:
+    - "accuracy"
+    - "f1_score"
+    - "precision"
+    - "recall"
+    - "confusion_matrix"
+    - "mae"  # Mean Absolute Error for SNR
+    - "mse"  # Mean Squared Error for SNR
+    - "r2_score"  # R-squared for SNR
+    
+# Spectrum Sensing Configuration
+spectrum_sensing:
+  psd_method: "welch"
+  nperseg: 64
+  noverlap: 32
+  nfft: 128
+  fs: 20e6  # Sampling frequency in Hz
+  threshold_db: -80  # Threshold for occupancy detection
+  
+# Ray Serve Configuration
+ray_serve:
+  host: "0.0.0.0"
+  port: 8000
+  num_replicas: 2
+  max_concurrent_queries: 100
+  
+  endpoints:
+    infer: "/infer"
+    spectrum: "/spectrum"
+    feedback: "/feedback"
+    metrics: "/metrics"
+    health: "/health"
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  log_dir: "logs"
+  tensorboard_dir: "logs/tensorboard"
+  log_file: "logs/training.log"
+  
+# Hardware Configuration
+hardware:
+  device: "auto"  # auto, cpu, cuda, mps
+  num_workers: 4
+  pin_memory: true
+  
+# Random Seed
+seed: 42
+

@@ -1,0 +1,55 @@
+# Dataset
+dataset:
+  data_dir: "/Users/jaime07ag/Library/Mobile Documents/com~apple~CloudDocs/Downloads/Elva/Ray_Serve/processed/"
+  signal_length: 512
+  num_classes: 4
+  class_names: ["WiFi", "LTE", "BLE", "Noise"]
+
+# Model
+model:
+  input_channels: 2
+  signal_length: 512
+  num_classes: 4
+  feature_extractor:
+    conv_layers: [32, 64, 128, 256]
+    kernel_sizes: [7, 5, 3, 3]
+    pool_sizes: [2, 2, 2, 2]
+    dropout_rate: 0.3
+  classification_head:
+    hidden_dims: [512, 256]
+    dropout_rate: 0.5
+  snr_head:
+    hidden_dims: [256, 128]
+    dropout_rate: 0.3
+
+# Training
+training:
+  batch_size: 64
+  learning_rate: 0.0015
+  weight_decay: 0.0001
+  num_epochs: 30
+  early_stopping:
+    patience: 8
+    min_delta: 0.002
+  scheduler:
+    type: cosine
+
+  checkpoint:
+    save_best: true
+    save_last: true
+    checkpoint_dir: "checkpoints"
+
+# Logging
+logging:
+  level: "INFO"
+  log_dir: "logs"
+  tensorboard_dir: "logs/tensorboard"
+  log_file: "training.log"
+
+# Hardware
+hardware:
+  num_workers: 0
+  pin_memory: false
+
+# Seed
+seed: 42

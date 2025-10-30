@@ -1,0 +1,102 @@
+# Optimized Configuration for Fast Training
+# Multitask Neural Network for Wireless Signal Classification and SNR Estimation
+
+# Dataset Configuration
+dataset:
+  data_dir: "processed"
+  train_file: "sdr_wifi_train.h5"
+  val_file: "sdr_wifi_val.h5"
+  test_file: "sdr_wifi_test.h5"
+  signal_length: 128
+  num_classes: 4
+  class_names: ["wifi", "lte", "ble", "noise"]
+  
+# Model Configuration - OPTIMIZED FOR SPEED
+model:
+  input_channels: 2  # I and Q channels
+  signal_length: 128
+  num_classes: 4
+  feature_extractor:
+    conv_layers: [16, 32, 64]  # Reduced layers
+    kernel_sizes: [5, 3, 3]   # Smaller kernels
+    dropout_rate: 0.2         # Reduced dropout
+    pool_sizes: [2, 2, 2]
+  
+  classification_head:
+    hidden_dims: [128, 64]    # Smaller head
+    dropout_rate: 0.3
+    
+  snr_head:
+    hidden_dims: [64, 32]     # Smaller head
+    dropout_rate: 0.2
+    
+  loss_weights:
+    classification_weight: 1.0
+    snr_weight: 0.5  # alpha parameter
+
+# Training Configuration - OPTIMIZED FOR SPEED
+training:
+  batch_size: 64              # Larger batch size
+  learning_rate: 0.003        # Higher learning rate
+  num_epochs: 10              # Fewer epochs
+  weight_decay: 0.0001
+  scheduler:
+    type: "cosine"
+    warmup_epochs: 2          # Fewer warmup epochs
+    
+  early_stopping:
+    patience: 5               # Less patience
+    min_delta: 0.001
+    
+  checkpoint:
+    save_best: true
+    save_last: true
+    checkpoint_dir: "checkpoints"
+    
+# Evaluation Configuration
+evaluation:
+  metrics:
+    - "accuracy"
+    - "f1_score"
+    - "mae"
+    - "mse"
+    - "r2_score"
+    
+# Spectrum Sensing Configuration
+spectrum_sensing:
+  psd_method: "welch"
+  nperseg: 32                 # Smaller segments
+  noverlap: 16
+  nfft: 64                    # Smaller FFT
+  fs: 20e6  # Sampling frequency in Hz
+  threshold_db: -80  # Threshold for occupancy detection
+  
+# Ray Serve Configuration
+ray_serve:
+  host: "0.0.0.0"
+  port: 8000
+  num_replicas: 1             # Single replica for speed
+  max_concurrent_queries: 50
+  
+  endpoints:
+    infer: "/infer"
+    spectrum: "/spectrum"
+    feedback: "/feedback"
+    metrics: "/metrics"
+    health: "/health"
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  log_dir: "logs"
+  tensorboard_dir: "logs/tensorboard"
+  log_file: "training.log"
+  
+# Hardware Configuration
+hardware:
+  device: "auto"  # auto, cpu, cuda, mps
+  num_workers: 2              # Fewer workers
+  pin_memory: false            # Disable for speed
+  
+# Random Seed
+seed: 42

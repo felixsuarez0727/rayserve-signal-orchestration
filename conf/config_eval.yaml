@@ -1,0 +1,86 @@
+# Data Configuration
+dataset:
+  data_dir: "/Users/jaime07ag/Library/Mobile Documents/com~apple~CloudDocs/Downloads/Elva/Ray_Serve/processed/"
+  train_file: "sdr_wifi_train.h5"
+  val_file: "sdr_wifi_val.h5"
+  test_file: "sdr_wifi_test.h5"
+  signal_length: 128 # L in (2, L)
+  num_classes: 4 # WiFi, LTE, BLE, Noise
+  class_names: ["WiFi", "LTE", "BLE", "Noise"]
+  lazy_loading: True
+  normalize_data: True
+  
+# Model Configuration - MATCHING TRAINED MODEL
+model:
+  input_channels: 2
+  signal_length: 128
+  num_classes: 4
+  feature_extractor:
+    conv_layers: [16, 32, 64]  # Original configuration
+    kernel_sizes: [5, 3, 3]    # Original configuration
+    pool_sizes: [2, 2, 2]
+    dropout_rate: 0.3
+  classification_head:
+    hidden_dims: [128, 64]     # Original configuration
+    dropout_rate: 0.5
+  snr_head:
+    hidden_dims: [64, 32]      # Original configuration
+    dropout_rate: 0.3
+  
+# Training Configuration
+training:
+  batch_size: 32
+  learning_rate: 0.001
+  num_epochs: 50
+  alpha: 0.5 # Weight for SNR loss
+  weight_decay: 0.0001
+  scheduler:
+    type: "cosine" # "step", "plateau", "cosine"
+    step_size: 10 # For StepLR
+    gamma: 0.1 # For StepLR
+    patience: 5 # For ReduceLROnPlateau
+    factor: 0.5 # For ReduceLROnPlateau
+    min_lr: 1.0e-6 # For ReduceLROnPlateau
+    warmup_epochs: 5 # For CosineAnnealingWarmRestarts
+    T_0: 10 # For CosineAnnealingWarmRestarts
+    T_mult: 2 # For CosineAnnealingWarmRestarts
+  early_stopping:
+    patience: 10
+    min_delta: 0.001
+    monitor: "val_loss" # "val_loss", "val_acc"
+    mode: "min" # "min", "max"
+    
+# Checkpoint Configuration
+checkpoint:
+  save_dir: "checkpoints"
+  save_best_only: True
+  
+# Ray Serve Configuration
+ray_serve:
+  num_replicas: 1
+  max_batch_size: 16
+  batch_wait_timeout_s: 0.1
+  
+# API Endpoints
+api_endpoints:
+  infer: "/infer"
+  spectrum: "/spectrum"
+  feedback: "/feedback"
+  metrics: "/metrics"
+  health: "/health"
+  
+# Logging Configuration
+logging:
+  level: "INFO"
+  log_dir: "logs"
+  tensorboard_dir: "logs/tensorboard"
+  log_file: "training.log"
+  
+# Hardware Configuration
+hardware:
+  device: "auto" # auto, cpu, cuda, mps
+  num_workers: 4
+  pin_memory: False
+
+# Random seed for reproducibility
+seed: 42

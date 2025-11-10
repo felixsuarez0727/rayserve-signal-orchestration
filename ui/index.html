@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Diagrama de Red Multitarea</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+      const { useMemo, useState, useEffect, useRef } = React;
+
+      const Card = ({ title, subtitle, items, accent = '#3b82f6', onClick }) => (
+        <div className="card" style={{ borderTopColor: accent }} onClick={onClick} title={`${title}${subtitle ? ` — ${subtitle}` : ''}`}>
+          <div className="card-title">
+            <div className="dot" style={{ background: accent }} />
+            <div>
+              <div className="title">{title}</div>
+              {subtitle && <div className="subtitle">{subtitle}</div>}
+            </div>
+          </div>
+          {items && items.length > 0 && (
+            <ul className="list">
+              {items.map((t, idx) => (
+                <li key={idx}>{t}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      );
+
+      const Toolbar = ({ theme, setTheme, onExport, scale, setScale, L, setL }) => (
+        <div className="toolbar">
+          <div className="left">
+            <strong>Multitask CNN</strong>
+            <span className="muted">Wireless Signals</span>
+          </div>
+          <div className="controls">
+            <label title="Signal length (L)">L
+              <input type="range" min="128" max="2048" step="128" value={L} onChange={e=>setL(parseInt(e.target.value,10))} />
+              <span>{L}</span>
+            </label>
+            <label title="Zoom">
+              Zoom
+              <input type="range" min="75" max="140" step="5" value={scale} onChange={e=>setScale(parseInt(e.target.value,10))} />
+              <span>{scale}%</span>
+            </label>
+            <button className="btn" onClick={()=>setTheme(theme==='dark'?'light':'dark')} title="Toggle theme">{theme==='dark'?'Light':'Dark'}</button>
+            <button className="btn primary" onClick={onExport} title="Export PNG">Export PNG</button>
+          </div>
+        </div>
+      );
+
+      const Modal = ({ open, onClose, title, children }) => {
+        if (!open) return null;
+        return (
+          <div className="modal-backdrop" onClick={onClose}>
+            <div className="modal" onClick={(e)=>e.stopPropagation()}>
+              <div className="modal-header">
+                <div className="modal-title">{title}</div>
+                <button className="icon" onClick={onClose}>✕</button>
+              </div>
+              <div className="modal-body">{children}</div>
+            </div>
+          </div>
+        );
+      };
+
+      const Diagram = () => {
+        const [theme, setTheme] = useState('dark');
+        const [scale, setScale] = useState(100);
+        const [L, setL] = useState(512);
+        const [modal, setModal] = useState({ open:false, title:'', content:null });
+        const containerRef = useRef(null);
+
+        const feItems = useMemo(() => [
+          'Conv1D + BatchNorm + ReLU',
+          'MaxPool',
+          'Dropout (0.3)',
+          'Bloques: [32, 64, 128, 256] filtros',
+          'Kernels: [7, 5, 3, 3]',
+        ], []);
+
+        const clsItems = useMemo(() => [
+          'FC: 512 → 256 → Softmax',
+          'Clases: WiFi, LTE, BLE, Noise'
+        ], []);
+
+        const snrItems = useMemo(() => [
+          'FC: 256 → 128 → 1',
+          'Salida escalar (dB)'
+        ], []);
+
+        useEffect(()=>{
+          document.documentElement.setAttribute('data-theme', theme);
+        },[theme]);
+
+        const onExport = async () => {
+          const node = containerRef.current;
+          if (!node) return;
+          const canvas = await html2canvas(node, { backgroundColor: null, scale: 2 });
+          const link = document.createElement('a');
+          link.download = 'multitask_cnn.png';
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+        };
+
+        return (
+          <div className="page" style={{ zoom: `${scale}%` }}>
+            <Toolbar theme={theme} setTheme={setTheme} onExport={onExport} scale={scale} setScale={setScale} L={L} setL={setL} />
+            <div className="container" ref={containerRef}>
+              <header>
+                <h1>Arquitectura Multitarea</h1>
+                <p>Extractor compartido + clasificación + SNR — Señal I/Q (2, {L})</p>
+              </header>
+              <div className="grid">
+                <Card title="Input" subtitle={`Señal I/Q (2, ${L})`} items={[ 'Normalización', 'Ruido (opcional)' ]} accent="#0ea5e9" onClick={()=>setModal({open:true,title:'Input',content:(<ul><li>Forma: (2, {L})</li><li>Preproc: Normalización</li><li>Aug: Ruido opcional</li></ul>)})} />
+                <div className="arrow-v" />
+                <Card title="Feature Extractor" subtitle="Compartido" items={feItems} accent="#22c55e" onClick={()=>setModal({open:true,title:'Feature Extractor',content:(<ul><li>Filtros: 32→64→128→256</li><li>Kernels: 7,5,3,3</li><li>Pool: 2,2,2,2</li><li>Dropout: 0.3</li></ul>)})} />
+                <div className="split">
+                  <div className="branch">
+                    <Card title="Classification Head" subtitle="FC → Softmax (4)" items={clsItems} accent="#3b82f6" onClick={()=>setModal({open:true,title:'Classification Head',content:(<ul><li>FC: 512 → 256</li><li>Output: 4 clases</li><li>Pérdida: CrossEntropy</li></ul>)})} />
+                  </div>
+                  <div className="branch">
+                    <Card title="SNR Head" subtitle="FC → 1 (dB)" items={snrItems} accent="#f59e0b" onClick={()=>setModal({open:true,title:'SNR Head',content:(<ul><li>FC: 256 → 128</li><li>Output: 1 (dB)</li><li>Pérdida: MSE</li></ul>)})} />
+                  </div>
+                </div>
+              </div>
+              <footer>
+                <div className="legend">
+                  <span className="badge in">Input</span>
+                  <span className="badge fe">Extractor</span>
+                  <span className="badge cls">Clasificación</span>
+                  <span className="badge snr">SNR</span>
+                </div>
+                <div className="formula">L = L<sub>cls</sub> + α · L<sub>snr</sub> &nbsp; (α = 0.5)</div>
+              </footer>
+            </div>
+            <Modal open={modal.open} onClose={()=>setModal({...modal, open:false})} title={modal.title}>{modal.content}</Modal>
+          </div>
+        );
+      };
+
+      ReactDOM.createRoot(document.getElementById('root')).render(<Diagram />);
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  </body>
+  </html>
+
+

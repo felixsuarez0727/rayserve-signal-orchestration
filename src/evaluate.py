@@ -40,18 +40,16 @@ def evaluate_model(
     logger.info(f"Evaluating on {split_name} set...")
     
     with torch.no_grad():
-        for signals, labels in data_loader:
+        for signals, labels, snr_targets in data_loader:
             signals = signals.to(device)
             labels = labels.to(device)
+            snr_targets = snr_targets.to(device).squeeze()  # Ensure 1D tensor
             
             # Convert one-hot labels to class indices
             if labels.dim() > 1 and labels.shape[1] > 1:
                 class_labels = torch.argmax(labels, dim=1)
             else:
                 class_labels = labels.squeeze()
-            
-            # Generate dummy SNR targets (in real scenario, these would come from dataset)
-            snr_targets = torch.randn(labels.shape[0]).to(device) * 10 + 20
             
             # Forward pass
             classification_logits, snr_estimates = model(signals)
@@ -98,7 +96,7 @@ def plot_confusion_matrix(
     save_path: Path,
     title: str = "Confusion Matrix"
 ) -> None:
-    """Plot and save confusion matrix."""
+    """Plot and save confusion matrix (both absolute values and percentages)."""
     import seaborn as sns
     
     predictions = np.array(metrics['predictions'])
@@ -108,7 +106,7 @@ def plot_confusion_matrix(
     from sklearn.metrics import confusion_matrix
     cm = confusion_matrix(targets, predictions)
     
-    # Plot
+    # Plot 1: Absolute values
     plt.figure(figsize=(8, 6))
     sns.heatmap(
         cm,
@@ -118,15 +116,42 @@ def plot_confusion_matrix(
         xticklabels=class_names,
         yticklabels=class_names
     )
-    plt.title(title)
+    plt.title(title + " (Absolute Values)")
     plt.xlabel('Predicted')
     plt.ylabel('Actual')
     
-    # Save plot
+    # Save absolute plot
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close()
     
-    print(f"Confusion matrix saved to {save_path}")
+    print(f"Confusion matrix (absolute) saved to {save_path}")
+    
+    # Plot 2: Percentages
+    cm_percent = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis] * 100
+    
+    plt.figure(figsize=(8, 6))
+    # Format annotations with percentage symbol
+    annot_percent = np.array([[f'{val:.1f}%' for val in row] for row in cm_percent])
+    sns.heatmap(
+        cm_percent,
+        annot=annot_percent,
+        fmt='',
+        cmap='Blues',
+        xticklabels=class_names,
+        yticklabels=class_names,
+        vmin=0,
+        vmax=100
+    )
+    plt.title(title + " (Percentages)")
+    plt.xlabel('Predicted')
+    plt.ylabel('Actual')
+    
+    # Save percentage plot
+    percent_path = save_path.parent / (save_path.stem + '_percent.png')
+    plt.savefig(percent_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    print(f"Confusion matrix (percentages) saved to {percent_path}")
 
 
 def plot_snr_scatter(
@@ -209,9 +234,15 @@ def generate_classification_report(
     predictions = np.array(metrics['predictions'])
     targets = np.array(metrics['targets'])
     
+    # Ensure targets and predictions are within valid range for the number of classes
+    num_classes = len(class_names)
+    targets = np.clip(targets, 0, num_classes - 1)
+    predictions = np.clip(predictions, 0, num_classes - 1)
+    
     report = classification_report(
         targets, predictions,
         target_names=class_names,
+        labels=list(range(num_classes)),
         output_dict=True
     )
     
@@ -282,7 +313,7 @@ def main():
     
     # Load checkpoint
     logger.info(f"Loading checkpoint: {args.checkpoint}")
-    checkpoint = torch.load(args.checkpoint, map_location=device)
+    checkpoint = torch.load(args.checkpoint, map_location=device, weights_only=False)
     model.load_state_dict(checkpoint['model_state_dict'])
     
     logger.info(f"Checkpoint loaded from epoch {checkpoint['epoch']}")

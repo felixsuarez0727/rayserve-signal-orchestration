@@ -1,0 +1,71 @@
+# Configuration for WiFi vs Noise Binary Classification
+# Dataset contains only WiFi signals and Noise
+
+# Dataset Configuration
+dataset:
+  data_dir: "/Users/jaime07ag/Library/Mobile Documents/com~apple~CloudDocs/Downloads/Elva/Ray_Serve/processed/"
+  train_file: "sdr_wifi_train.h5"
+  val_file: "sdr_wifi_val.h5"
+  test_file: "sdr_wifi_test.h5"
+  signal_length: 128
+  num_classes: 2  # WiFi vs Noise
+  class_names: ["Noise", "WiFi"]
+
+# Model Configuration
+model:
+  input_channels: 2
+  signal_length: 128
+  num_classes: 2
+  feature_extractor:
+    conv_layers: [64, 128, 256, 512]
+    kernel_sizes: [9, 7, 5, 3]
+    pool_sizes: [2, 2, 2, 2]
+    dropout_rate: 0.3
+  classification_head:
+    hidden_dims: [512, 256]
+    dropout_rate: 0.4
+  snr_head:
+    hidden_dims: [256, 128]
+    dropout_rate: 0.3
+  loss_weights:
+    classification_weight: 1.0
+    snr_weight: 0.2
+  alpha: 0.2
+
+# Training Configuration
+training:
+  batch_size: 32
+  learning_rate: 0.001
+  num_epochs: 100
+  weight_decay: 0.0002
+  scheduler:
+    type: "cosine"
+    warmup_epochs: 5
+  early_stopping:
+    patience: 20
+    min_delta: 0.001
+  checkpoint:
+    save_best: true
+    save_last: true
+    checkpoint_dir: "checkpoints"
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  log_dir: "logs"
+  tensorboard_dir: "logs/tensorboard"
+  log_file: "training.log"
+
+# Hardware Configuration
+hardware:
+  device: "auto"
+  num_workers: 0
+  pin_memory: false
+
+# Random seed for reproducibility
+seed: 42
+
+
+
+
+

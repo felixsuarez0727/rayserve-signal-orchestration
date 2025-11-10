@@ -63,18 +63,16 @@ def train_epoch(
     
     pbar = tqdm(train_loader, desc=f"Epoch {epoch}")
     
-    for batch_idx, (signals, labels) in enumerate(pbar):
+    for batch_idx, (signals, labels, snr_targets) in enumerate(pbar):
         signals = signals.to(device)
         labels = labels.to(device)
+        snr_targets = snr_targets.to(device).squeeze()  # Ensure 1D tensor
         
         # Convert one-hot labels to class indices
         if labels.dim() > 1 and labels.shape[1] > 1:
             class_labels = torch.argmax(labels, dim=1)
         else:
             class_labels = labels.squeeze()
-        
-        # Generate dummy SNR targets (in real scenario, these would come from dataset)
-        snr_targets = torch.randn(labels.shape[0]).to(device) * 10 + 20  # SNR around 20 dB
         
         optimizer.zero_grad()
         
@@ -128,18 +126,16 @@ def validate_epoch(
     num_batches = len(val_loader)
     
     with torch.no_grad():
-        for signals, labels in tqdm(val_loader, desc=f"Validation {epoch}"):
+        for signals, labels, snr_targets in tqdm(val_loader, desc=f"Validation {epoch}"):
             signals = signals.to(device)
             labels = labels.to(device)
+            snr_targets = snr_targets.to(device).squeeze()  # Ensure 1D tensor
             
             # Convert one-hot labels to class indices
             if labels.dim() > 1 and labels.shape[1] > 1:
                 class_labels = torch.argmax(labels, dim=1)
             else:
                 class_labels = labels.squeeze()
-            
-            # Generate dummy SNR targets
-            snr_targets = torch.randn(labels.shape[0]).to(device) * 10 + 20
             
             # Forward pass
             classification_logits, snr_estimates = model(signals)
@@ -236,8 +232,14 @@ def main():
     
     # Create data loaders
     logger.info("Creating data loaders...")
-    train_transform = SignalTransform(normalize=True, add_noise=True)
-    val_transform = SignalTransform(normalize=True, add_noise=False)
+    train_transform = SignalTransform(
+        normalize=True, 
+        add_noise=True, 
+        time_shift=True, 
+        freq_shift=True, 
+        amplitude_scale=True
+    )
+    val_transform = SignalTransform(normalize=True, add_noise=False, time_shift=False, freq_shift=False, amplitude_scale=False)
     
     train_loader, val_loader, test_loader = create_data_loaders(
         data_dir=config['dataset']['data_dir'],
@@ -253,23 +255,68 @@ def main():
     logger.info(f"Validation samples: {len(val_loader.dataset)}")
     logger.info(f"Test samples: {len(test_loader.dataset)}")
     
-    # Create model and loss function
+    # Calculate class weights for imbalanced dataset BEFORE creating model
+    logger.info("Calculating class weights for imbalanced dataset...")
+    num_classes = config['model']['num_classes']
+    class_counts = torch.zeros(num_classes)
+    for signals, labels, snr_targets in train_loader:
+        if labels.dim() > 1 and labels.shape[1] > 1:
+            class_indices = torch.argmax(labels, dim=1)
+        else:
+            class_indices = labels.squeeze().long()
+        # Ensure indices are within valid range
+        class_indices = torch.clamp(class_indices, 0, num_classes - 1)
+        for idx in class_indices:
+            class_counts[idx] += 1
+    
+    logger.info(f"Class counts: {class_counts.tolist()}")
+    
+    # Create model (loss_fn will be created after)
     logger.info("Creating model...")
-    model, loss_fn = create_model(config, device)
+    model, _ = create_model(config, device)
+    
+    # Compute weights (inverse frequency, balanced)
+    total_samples = class_counts.sum()
+    class_weights = total_samples / (config['model']['num_classes'] * class_counts + 1e-8)
+    class_weights = class_weights / class_weights.sum() * config['model']['num_classes']  # Normalize
+    class_weights = class_weights.to(device)
+    
+    logger.info(f"Class weights: {class_weights.tolist()}")
+    
+    # Create loss function with class weights
+    from src.models.multitask_net import MultitaskLoss
+    loss_config = config['model'].get('loss_weights', {})
+    loss_fn = MultitaskLoss(
+        classification_weight=loss_config.get('classification_weight', 1.0),
+        snr_weight=loss_config.get('snr_weight', 0.5),
+        classification_loss_fn=nn.CrossEntropyLoss(weight=class_weights)
+    )
     
     # Create optimizer
-    optimizer = optim.Adam(
+    optimizer = optim.AdamW(
         model.parameters(),
         lr=config['training']['learning_rate'],
         weight_decay=config['training']['weight_decay']
     )
     
-    # Create scheduler
+    # Create scheduler with warmup
     if config['training']['scheduler']['type'] == 'cosine':
-        scheduler = optim.lr_scheduler.CosineAnnealingLR(
-            optimizer,
-            T_max=config['training']['num_epochs']
-        )
+        warmup_epochs = config['training']['scheduler'].get('warmup_epochs', 5)
+        if warmup_epochs > 0:
+            # Cosine annealing with warmup
+            from torch.optim.lr_scheduler import LambdaLR
+            def lr_lambda(epoch):
+                if epoch < warmup_epochs:
+                    return epoch / warmup_epochs
+                else:
+                    progress = (epoch - warmup_epochs) / (config['training']['num_epochs'] - warmup_epochs)
+                    return 0.5 * (1 + np.cos(np.pi * progress))
+            scheduler = LambdaLR(optimizer, lr_lambda)
+        else:
+            scheduler = optim.lr_scheduler.CosineAnnealingLR(
+                optimizer,
+                T_max=config['training']['num_epochs']
+            )
     else:
         scheduler = None
     
@@ -359,6 +406,87 @@ def main():
     logger.info(f"Best validation loss: {best_val_loss:.4f}")
     
     writer.close()
+    
+    # Automatically run evaluation after training completes
+    logger.info("=" * 60)
+    logger.info("Starting automatic evaluation...")
+    logger.info("=" * 60)
+    
+    # Import evaluation functions
+    from src.evaluate import evaluate_model, plot_confusion_matrix, plot_snr_scatter, plot_class_probabilities, generate_classification_report
+    
+    # Determine best checkpoint path
+    checkpoint_dir = Path(config['training']['checkpoint']['checkpoint_dir'])
+    best_checkpoint_path = checkpoint_dir / 'best_checkpoint.pth'
+    
+    if not best_checkpoint_path.exists():
+        # Fallback to last checkpoint if best doesn't exist
+        best_checkpoint_path = checkpoint_dir / 'last_checkpoint.pth'
+        logger.warning(f"Best checkpoint not found, using last checkpoint: {best_checkpoint_path}")
+    
+    if not best_checkpoint_path.exists():
+        logger.error(f"No checkpoint found at {best_checkpoint_path}. Skipping evaluation.")
+        return
+    
+    # Load the best model
+    logger.info(f"Loading best checkpoint: {best_checkpoint_path}")
+    checkpoint = torch.load(best_checkpoint_path, map_location=device, weights_only=False)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    logger.info(f"Checkpoint loaded from epoch {checkpoint['epoch']}")
+    
+    # Get class names
+    class_names = config['dataset']['class_names']
+    
+    # Create output directory for evaluation
+    output_dir = Path(config['logging']['log_dir']) / 'evaluation'
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Evaluate on test set
+    logger.info("Evaluating on test set...")
+    test_metrics = evaluate_model(model, test_loader, device, 'test', logger)
+    
+    # Generate plots and reports
+    logger.info("Generating evaluation plots and reports...")
+    plot_confusion_matrix(
+        test_metrics, class_names,
+        output_dir / 'test_confusion_matrix.png',
+        'Test Confusion Matrix'
+    )
+    
+    plot_snr_scatter(
+        test_metrics,
+        output_dir / 'test_snr_scatter.png',
+        'Test SNR Predictions vs True Values'
+    )
+    
+    plot_class_probabilities(
+        test_metrics, class_names,
+        output_dir / 'test_class_probabilities.png',
+        'Test Class Probabilities Distribution'
+    )
+    
+    generate_classification_report(
+        test_metrics, class_names,
+        output_dir / 'test_classification_report.json'
+    )
+    
+    # Print summary
+    logger.info("")
+    logger.info("=" * 60)
+    logger.info("EVALUATION SUMMARY")
+    logger.info("=" * 60)
+    logger.info("")
+    logger.info("TEST SET:")
+    logger.info(f"  Accuracy: {test_metrics['accuracy']:.4f}")
+    logger.info(f"  F1 Score (macro): {test_metrics['f1_macro']:.4f}")
+    logger.info(f"  Precision (macro): {test_metrics['precision_macro']:.4f}")
+    logger.info(f"  Recall (macro): {test_metrics['recall_macro']:.4f}")
+    logger.info(f"  SNR MAE: {test_metrics['snr_mae']:.4f}")
+    logger.info(f"  SNR MSE: {test_metrics['snr_mse']:.4f}")
+    logger.info(f"  SNR R²: {test_metrics['snr_r2']:.4f}")
+    logger.info("")
+    logger.info(f"Results saved to: {output_dir}")
+    logger.info("Evaluation completed!")
 
 
 if __name__ == "__main__":

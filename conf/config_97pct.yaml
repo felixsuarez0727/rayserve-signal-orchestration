@@ -1,0 +1,67 @@
+# Configuration optimized for 97%+ accuracy
+# Enhanced architecture, better training strategy, class balancing
+
+# Dataset Configuration
+dataset:
+  data_dir: "/Users/jaime07ag/Library/Mobile Documents/com~apple~CloudDocs/Downloads/Elva/Ray_Serve/processed/"
+  train_file: "sdr_wifi_train.h5"
+  val_file: "sdr_wifi_val.h5"
+  test_file: "sdr_wifi_test.h5"
+  signal_length: 128  # Actual signal length in dataset
+  num_classes: 4
+  class_names: ["WiFi", "LTE", "BLE", "Noise"]
+
+# Model Configuration - LARGER ARCHITECTURE
+model:
+  input_channels: 2
+  signal_length: 128
+  num_classes: 4
+  feature_extractor:
+    conv_layers: [64, 128, 256, 512]  # More filters, deeper
+    kernel_sizes: [9, 7, 5, 3]       # Larger initial kernels
+    pool_sizes: [2, 2, 2, 2]
+    dropout_rate: 0.4                # More regularization
+  classification_head:
+    hidden_dims: [1024, 512, 256]    # Larger FC layers
+    dropout_rate: 0.5
+  snr_head:
+    hidden_dims: [512, 256, 128]      # Larger FC layers
+    dropout_rate: 0.4
+  loss_weights:
+    classification_weight: 1.0
+    snr_weight: 0.3  # Lower weight to focus on classification
+  alpha: 0.3
+
+# Training Configuration - OPTIMIZED FOR HIGH ACCURACY
+training:
+  batch_size: 32                     # Smaller batch for better gradients
+  learning_rate: 0.0005              # Lower initial LR for stability
+  num_epochs: 60                     # More epochs
+  weight_decay: 0.0005               # Higher regularization
+  scheduler:
+    type: "cosine"
+    warmup_epochs: 5                 # Gradual warmup
+  early_stopping:
+    patience: 15                     # More patience
+    min_delta: 0.0005
+  checkpoint:
+    save_best: true
+    save_last: true
+    checkpoint_dir: "checkpoints"
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  log_dir: "logs"
+  tensorboard_dir: "logs/tensorboard"
+  log_file: "training.log"
+
+# Hardware Configuration
+hardware:
+  device: "auto"
+  num_workers: 0                     # Avoid multiprocessing issues
+  pin_memory: false
+
+# Random seed for reproducibility
+seed: 42
+

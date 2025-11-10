@@ -60,16 +60,15 @@ class FeatureExtractor(nn.Module):
             self.conv_blocks.append(conv_block)
             in_channels = out_channels
         
-        # Calculate the output size after convolutions
-        self.feature_size = self._calculate_feature_size()
+        # Feature size will be calculated later with actual signal_length
+        self.feature_size = None  # Will be set after calculation
         
         logger.info(f"Feature extractor initialized with {len(conv_layers)} conv layers")
-        logger.info(f"Feature size: {self.feature_size}")
     
-    def _calculate_feature_size(self) -> int:
+    def _calculate_feature_size(self, signal_length: int = 512) -> int:
         """Calculate the output feature size after all conv layers."""
-        # Start with a dummy input to calculate the output size
-        dummy_input = torch.randn(1, self.input_channels, 128)  # Assuming 128 samples
+        # Use actual signal length for calculation
+        dummy_input = torch.randn(1, self.input_channels, signal_length)
         with torch.no_grad():
             x = dummy_input
             for conv_block in self.conv_blocks:
@@ -81,14 +80,20 @@ class FeatureExtractor(nn.Module):
         Forward pass through the feature extractor.
         
         Args:
-            x: Input tensor of shape (batch_size, channels, sequence_length)
+            x: Input tensor of shape (batch_size, sequence_length, channels) or (batch_size, channels, sequence_length)
             
         Returns:
             Flattened feature tensor
         """
-        # Transpose to (batch_size, channels, sequence_length) if needed
-        if x.dim() == 3 and x.shape[1] != self.input_channels:
-            x = x.transpose(1, 2)
+        # Ensure shape (batch_size, channels, sequence_length) for Conv1D
+        if x.dim() == 3:
+            # If shape is (batch, L, 2), transpose to (batch, 2, L)
+            if x.shape[2] == self.input_channels and x.shape[1] != self.input_channels:
+                x = x.transpose(1, 2)
+            # If already (batch, 2, L), keep as is
+        elif x.dim() == 2:
+            # Add channel dimension: (batch, L) -> (batch, 1, L)
+            x = x.unsqueeze(1)
         
         # Apply convolutional blocks
         for conv_block in self.conv_blocks:
@@ -277,14 +282,18 @@ class MultitaskSignalNet(nn.Module):
             **fe_config
         )
         
+        # Calculate feature size with actual signal length
+        feature_size = self.feature_extractor._calculate_feature_size(signal_length)
+        self.feature_extractor.feature_size = feature_size
+        
         self.classification_head = ClassificationHead(
-            input_size=self.feature_extractor.feature_size,
+            input_size=feature_size,
             num_classes=num_classes,
             **cls_config
         )
         
         self.snr_head = SNRHead(
-            input_size=self.feature_extractor.feature_size,
+            input_size=feature_size,
             **snr_config
         )
         
@@ -297,11 +306,17 @@ class MultitaskSignalNet(nn.Module):
         Forward pass through the network.
         
         Args:
-            x: Input tensor of shape (batch_size, channels, sequence_length)
+            x: Input tensor of shape (batch_size, sequence_length, channels) or (batch_size, channels, sequence_length)
             
         Returns:
             Tuple of (classification_logits, snr_estimates)
         """
+        # Ensure correct input shape for feature extractor: (batch, channels, length)
+        if x.dim() == 3:
+            # If shape is (batch, L, channels), transpose to (batch, channels, L)
+            if x.shape[2] == self.input_channels and x.shape[1] != self.input_channels:
+                x = x.transpose(1, 2)
+        
         # Extract shared features
         features = self.feature_extractor(x)
         

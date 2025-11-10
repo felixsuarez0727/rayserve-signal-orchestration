@@ -1,0 +1,71 @@
+# Configuration optimized for 97%+ accuracy - VERSION 2
+# Reduced regularization, more epochs, adjusted learning rate
+
+# Dataset Configuration
+dataset:
+  data_dir: "/Users/jaime07ag/Library/Mobile Documents/com~apple~CloudDocs/Downloads/Elva/Ray_Serve/processed/"
+  train_file: "sdr_wifi_train.h5"
+  val_file: "sdr_wifi_val.h5"
+  test_file: "sdr_wifi_test.h5"
+  signal_length: 128  # Actual signal length in dataset
+  num_classes: 4
+  class_names: ["WiFi", "LTE", "BLE", "Noise"]
+
+# Model Configuration - LARGER ARCHITECTURE
+model:
+  input_channels: 2
+  signal_length: 128
+  num_classes: 4
+  feature_extractor:
+    conv_layers: [64, 128, 256, 512]  # More filters, deeper
+    kernel_sizes: [9, 7, 5, 3]       # Larger initial kernels
+    pool_sizes: [2, 2, 2, 2]
+    dropout_rate: 0.3                # Reduced from 0.4
+  classification_head:
+    hidden_dims: [1024, 512, 256]    # Larger FC layers
+    dropout_rate: 0.4                # Reduced from 0.5
+  snr_head:
+    hidden_dims: [512, 256, 128]      # Larger FC layers
+    dropout_rate: 0.25                # Reduced from 0.4
+  loss_weights:
+    classification_weight: 1.0
+    snr_weight: 0.2  # Lower weight to focus more on classification
+  alpha: 0.2
+
+# Training Configuration - OPTIMIZED FOR 97%+
+training:
+  batch_size: 32                     # Smaller batch for better gradients
+  learning_rate: 0.0008              # Increased from 0.0005
+  num_epochs: 100                    # More epochs
+  weight_decay: 0.0002               # Reduced from 0.0005
+  scheduler:
+    type: "cosine"
+    warmup_epochs: 5                 # Gradual warmup
+  early_stopping:
+    patience: 20                     # More patience (was 15)
+    min_delta: 0.001                  # More tolerant
+  checkpoint:
+    save_best: true
+    save_last: true
+    checkpoint_dir: "checkpoints"
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  log_dir: "logs"
+  tensorboard_dir: "logs/tensorboard"
+  log_file: "training.log"
+
+# Hardware Configuration
+hardware:
+  device: "auto"
+  num_workers: 0                     # Avoid multiprocessing issues
+  pin_memory: false
+
+# Random seed for reproducibility
+seed: 42
+
+
+
+
+

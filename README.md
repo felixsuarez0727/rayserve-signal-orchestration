@@ -2,7 +2,7 @@
 
 **Multitask Deep Learning for WiFi Signal Detection and SNR Estimation with Spectrum Sensing**
 
-A comprehensive research project implementing a multitask neural network for binary WiFi signal detection (WiFi vs. Noise) and Signal-to-Noise Ratio (SNR) estimation, combined with traditional Power Spectral Density (PSD) analysis for opportunistic spectrum sensing.
+A comprehensive research project implementing a multitask neural network for binary WiFi signal detection (WiFi vs. Noise) and Signal-to-Noise Ratio (SNR) estimation, plus a dedicated deep learning model for spectrum sensing.
 
 ## 🔬 Scientific Description
 
@@ -10,7 +10,7 @@ This project addresses the challenge of **multitask learning in wireless signal 
 
 1. **Binary Signal Classification**: Detecting WiFi signals versus empty spectrum (Noise)
 2. **SNR Estimation**: Predicting Signal-to-Noise Ratio for signal quality assessment
-3. **Opportunistic Spectrum Sensing**: Analyzing Power Spectral Density (PSD) and channel occupancy for WiFi signals
+3. **Spectrum Sensing**: Multi-label channel occupancy prediction with a dedicated neural network
 
 The architecture leverages **multitask learning** to efficiently process both classification and regression tasks simultaneously, achieving 96.29% accuracy on real-world SDR data with 0.32 dB MAE for SNR estimation.
 
@@ -19,7 +19,7 @@ The architecture leverages **multitask learning** to efficiently process both cl
 - **Multitask Learning**: Shared feature extractor reduces computational overhead by 40% while maintaining task-specific performance
 - **Real-World Performance**: 96.29% classification accuracy and 0.32 dB SNR MAE on SDR-captured data
 - **Class Imbalance Handling**: Weighted loss functions effectively address imbalanced datasets (7:1 ratio)
-- **Opportunistic Spectrum Sensing**: Real-time PSD analysis with Welch's method and periodogram for frequency-domain insights
+- **Deep Learning Spectrum Sensing**: Dedicated occupancy model for 4-channel multi-label prediction
 - **End-to-End Pipeline**: From raw I/Q samples to actionable spectrum occupancy decisions
 
 ## 📊 Dataset
@@ -78,17 +78,26 @@ flowchart TD
   B --> D[SNR Head\nFC 256→128 → Scalar dB]
 ```
 
+#### Architecture 1: Multitask WiFi/SNR Network
+
+Shared CNN feature extractor for binary WiFi/Noise classification and SNR regression.
+
+![Multitask CNN Architecture](images/Neural_network/imagev1.png)
+
+#### Architecture 2: Spectrum Sensing Network
+
+Dedicated CNN for spectrum sensing with single occupancy head (4-channel multi-label output).
+
+![Spectrum Sensing Network Architecture](images/Neural_network/spectrum_sensing_nn.png)
+
 ### Spectrum Sensing Module
 
-Complementary traditional signal processing pipeline for PSD analysis:
+Dedicated deep learning pipeline for 4-channel multi-label occupancy prediction:
 
-1. **I/Q to Complex Conversion**: Converts I/Q samples to complex-valued signals
-2. **Windowing**: Hann window (nperseg=64, overlap=32)
-3. **PSD Computation**: Welch's method and Periodogram (parallel options)
-4. **Feature Extraction**: Peak frequency, peak power, occupancy ratio, bandwidth, SNR
-5. **Threshold Detection**: Adaptive -80 dB threshold
-6. **WiFi Channel Detection**: 2.4 GHz and 5 GHz band analysis
-7. **Decision Module**: Occupied/Vacant classification
+1. **I/Q Input Processing**: Uses the same signal representation base `(128, 2)` for training/inference
+2. **Shared CNN Backbone**: Learns frequency-domain and temporal patterns from raw I/Q
+3. **Occupancy Head**: Produces multi-label channel occupancy logits
+4. **Decision Module**: Applies thresholding on logits to infer occupied/vacant channels
 
 ### Loss Function
 
@@ -267,35 +276,11 @@ curl -X POST http://localhost:8000/infer \
     },
     "snr_estimate": 18.5,
     "confidence": 0.95
-  },
-  "spectrum_analysis": {
-    "peak_frequency": 2.4e9,
-    "peak_power": -65.2,
-    "occupancy_ratio": 0.75,
-    "bandwidth": 20e6,
-    "snr_estimate": 18.3
   }
 }
 ```
 
-### 2. Spectrum Analysis Endpoint
-
-```bash
-curl -X POST http://localhost:8000/spectrum \
-  -H "Content-Type: application/json" \
-  -d '{
-    "signal": [[0.1, 0.2], [0.3, 0.4], ...]
-  }'
-```
-
-Returns detailed PSD analysis including:
-- Peak frequency and power
-- Occupancy ratio
-- Bandwidth estimation
-- SNR estimate
-- WiFi channel information (2.4 GHz and 5 GHz bands)
-
-### 3. Health Check
+### 2. Health Check
 
 ```bash
 curl http://localhost:8000/health
@@ -310,6 +295,85 @@ curl http://localhost:8000/health
 tensorboard --logdir logs/tensorboard
 
 # View at http://localhost:6006
+```
+
+### Exporting Training Curves for the Paper
+
+Use the parsed training log to generate publication-ready curves:
+
+```bash
+python src/tools/generate_training_curves.py \
+  --log logs/training.log \
+  --output Images/training_curves.png
+```
+
+This creates `Images/training_curves.png` with:
+- Train vs validation loss per epoch
+- Train vs validation accuracy per epoch
+
+### Embedded/Edge Inference Benchmark
+
+Run a reproducible edge-oriented benchmark (single-thread CPU by default):
+
+```bash
+python src/tools/benchmark_embedded_inference.py \
+  --config conf/config_wifi_noise.yaml \
+  --checkpoint checkpoints/best_checkpoint.pth \
+  --device cpu \
+  --threads 1 \
+  --batch_size 1 \
+  --iterations 300 \
+  --warmup 50 \
+  --output logs/embedded_inference_benchmark.json
+```
+
+Optional int8 dynamic quantization (CPU only):
+
+```bash
+python src/tools/benchmark_embedded_inference.py \
+  --config conf/config_wifi_noise.yaml \
+  --checkpoint checkpoints/best_checkpoint.pth \
+  --device cpu \
+  --threads 1 \
+  --quantize
+```
+
+The benchmark JSON includes:
+- Mean/P50/P95 latency per inference
+- Throughput (samples/s)
+- Parameter count and checkpoint epoch
+- Device/thread/quantization configuration
+
+## 🧭 Deep Learning Spectrum Sensing (New)
+
+To train spectrum sensing as a dedicated DL task (multi-label channel occupancy), use:
+
+1. **Prepare `.bin` dataset to HDF5**:
+
+```bash
+python src/tools/prepare_spectrum_dataset.py \
+  --input_dir neu_bz61g073z \
+  --output_dir processed_spectrum
+```
+
+This creates:
+- `processed_spectrum/spectrum_train.h5`
+- `processed_spectrum/spectrum_val.h5`
+- `processed_spectrum/spectrum_test.h5`
+- `processed_spectrum/spectrum_dataset_summary.json`
+
+2. **Train spectrum sensing model**:
+
+```bash
+python src/train_spectrum_sensing.py --config conf/config_spectrum_sensing.yaml
+```
+
+3. **Compute SNR range directly from `.bin` files**:
+
+```bash
+python src/tools/compute_snr_range_from_bins.py \
+  --input_dir neu_bz61g073z \
+  --output logs/snr_range_from_bins.json
 ```
 
 ### Logs
@@ -340,7 +404,7 @@ python -m pytest --cov=src tests/
 This project enables research in:
 
 1. **Multitask Learning**: Shared representation learning for signal processing
-2. **Spectrum Sensing**: Opportunistic spectrum analysis for cognitive radio
+2. **Spectrum Sensing**: Multi-label channel occupancy learning for cognitive radio
 3. **Class Imbalance**: Handling imbalanced datasets in wireless signal classification
 4. **Real-World Deployment**: Evaluation on actual SDR-captured data
 
@@ -352,11 +416,11 @@ This project enables research in:
 2. Modify `num_classes` accordingly
 3. Retrain the model with new data
 
-### Custom Spectrum Analysis
+### Custom Spectrum Sensing Extensions
 
-1. Extend `SpectrumAnalyzer` in `src/opportunistic_sensing/psd.py`
-2. Add new metrics to the analysis
-3. Update API endpoints in `src/serve/app.py`
+1. Extend `SpectrumSensingNet` in `src/models/spectrum_sensing_net.py`
+2. Add new channel labels or loss weighting in `conf/config_spectrum_sensing.yaml`
+3. Update serving logic in `src/serve/app.py` if new outputs are exposed
 
 ### Adjusting Class Weights
 
@@ -374,6 +438,24 @@ class_weights = total_samples / (num_classes * class_counts)
 2. **Ray Serve Documentation**: https://docs.ray.io/en/latest/serve/
 
 3. **PyTorch Multitask Learning**: https://pytorch.org/tutorials/
+
+## 🏛️ Funding & Support
+
+This research is conducted at the **Instituto de Microelectrónica de Sevilla, IMSE-CNM (CSIC / Universidad de Sevilla)**, Spain, and supported by the following organizations and funding programs:
+
+<p align="center">
+  <img src="images/logos/logo-imse.png" alt="IMSE-CNM" height="70"/>
+  <img src="images/logos/logo%20CSIC.png" alt="CSIC" height="70"/>
+  <img src="images/logos/logo-doraito.png" alt="DoraiTo" height="70"/>
+  <img src="images/logos/_Logo-Momentum-Negativo_Circular.png" alt="Momentum CSIC" height="70"/>
+</p>
+
+<p align="center">
+  <img src="images/logos/Next_Generation.png" alt="NextGenerationEU" height="70"/>
+  <img src="images/logos/PRTR.png" alt="Plan de Recuperación, Transformación y Resiliencia" height="70"/>
+</p>
+
+Funded in part by the European Union's Recovery and Resilience Facility — **NextGenerationEU**, grants **PID2022-138078OB-I00** and **PDC2023-145808-I00** (MICIU / Agencia Estatal de Investigación), and **USECHIP (TSI-069100-2023-001)**.
 
 ## 📄 License
 

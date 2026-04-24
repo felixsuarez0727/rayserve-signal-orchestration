@@ -1,0 +1,7 @@
+.venv/
+.DS_Store
+neu_bz61g073z/
+processed_spectrum/
+processed_spectrum_small/
+checkpoints_spectrum/
+logs/tensorboard_*/

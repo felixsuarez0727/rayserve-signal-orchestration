@@ -84,14 +84,14 @@ def run_benchmark(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Benchmark inference for embedded/edge deployment")
     parser.add_argument("--config", type=str, default="conf/config_wifi_noise.yaml")
-    parser.add_argument("--checkpoint", type=str, default="checkpoints/best_checkpoint.pth")
+    parser.add_argument("--checkpoint", type=str, default="artifacts/checkpoints/main/best_checkpoint.pth")
     parser.add_argument("--device", type=str, default="cpu", choices=["cpu", "cuda", "mps"])
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--iterations", type=int, default=300)
     parser.add_argument("--warmup", type=int, default=50)
     parser.add_argument("--threads", type=int, default=1, help="CPU threads (edge-like: 1)")
     parser.add_argument("--quantize", action="store_true", help="Apply dynamic int8 quantization")
-    parser.add_argument("--output", type=str, default="logs/embedded_inference_benchmark.json")
+    parser.add_argument("--output", type=str, default="artifacts/logs/run/embedded_inference_benchmark.json")
     args = parser.parse_args()
 
     config = load_config(args.config)

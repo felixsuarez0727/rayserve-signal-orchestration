@@ -1,8 +1,8 @@
 # 🧠 Signal Orchestration Project
 
-**Multitask Deep Learning for WiFi Signal Detection and SNR Estimation with Spectrum Sensing**
+**Multitask Deep Learning for WiFi Signal Detection, SNR Estimation, and Link Adaptation Orchestration**
 
-A comprehensive research project implementing a multitask neural network for binary WiFi signal detection (WiFi vs. Noise) and Signal-to-Noise Ratio (SNR) estimation, plus a dedicated deep learning model for spectrum sensing.
+A comprehensive research project implementing a multitask neural network for binary WiFi signal detection (WiFi vs. Noise) and Signal-to-Noise Ratio (SNR) estimation, plus a pluggable downstream module for link adaptation decisions.
 
 ## 🔬 Scientific Description
 
@@ -10,7 +10,7 @@ This project addresses the challenge of **multitask learning in wireless signal 
 
 1. **Binary Signal Classification**: Detecting WiFi signals versus empty spectrum (Noise)
 2. **SNR Estimation**: Predicting Signal-to-Noise Ratio for signal quality assessment
-3. **Spectrum Sensing**: Multi-label channel occupancy prediction with a dedicated neural network
+3. **Downstream Decision**: Link adaptation recommendation (MCS/action) from model outputs
 
 The architecture leverages **multitask learning** to efficiently process both classification and regression tasks simultaneously, achieving 96.29% accuracy on real-world SDR data with 0.32 dB MAE for SNR estimation.
 
@@ -19,8 +19,8 @@ The architecture leverages **multitask learning** to efficiently process both cl
 - **Multitask Learning**: Shared feature extractor reduces computational overhead by 40% while maintaining task-specific performance
 - **Real-World Performance**: 96.29% classification accuracy and 0.32 dB SNR MAE on SDR-captured data
 - **Class Imbalance Handling**: Weighted loss functions effectively address imbalanced datasets (7:1 ratio)
-- **Deep Learning Spectrum Sensing**: Dedicated occupancy model for 4-channel multi-label prediction
-- **End-to-End Pipeline**: From raw I/Q samples to actionable spectrum occupancy decisions
+- **Decision-Aware Orchestration**: Pluggable `DownstreamTaskModule` for post-inference actions
+- **End-to-End Pipeline**: From raw I/Q samples to actionable transmission decisions
 
 ## 📊 Dataset
 
@@ -84,20 +84,19 @@ Shared CNN feature extractor for binary WiFi/Noise classification and SNR regres
 
 ![Multitask CNN Architecture](images/Neural_network/imagev1.png)
 
-#### Architecture 2: Spectrum Sensing Network
+#### Architecture 2: Downstream Link Adaptation Module
 
-Dedicated CNN for spectrum sensing with single occupancy head (4-channel multi-label output).
+Pluggable decision module that converts (`predicted_class`, `SNR`, `confidence`) into a recommended action and MCS profile.
 
-![Spectrum Sensing Network Architecture](images/Neural_network/spectrum_sensing_nn.png)
+### Orchestration Module
 
-### Spectrum Sensing Module
+Two-stage inference orchestration:
 
-Dedicated deep learning pipeline for 4-channel multi-label occupancy prediction:
-
-1. **I/Q Input Processing**: Uses the same signal representation base `(128, 2)` for training/inference
-2. **Shared CNN Backbone**: Learns frequency-domain and temporal patterns from raw I/Q
-3. **Occupancy Head**: Produces multi-label channel occupancy logits
-4. **Decision Module**: Applies thresholding on logits to infer occupied/vacant channels
+1. **Model Stage**: `I/Q -> shared CNN -> class + SNR`
+2. **Routing Stage**:
+   - **Noise** -> early exit
+   - **WiFi** -> `LinkAdaptationModule` (`MCS` recommendation or defer)
+3. **Output**: prediction payload + orchestration decision
 
 ### Loss Function
 
@@ -142,10 +141,8 @@ Where:
 
 ### Prerequisites
 
-- Python 3.9+
-- PyTorch 2.0+
-- NumPy, SciPy, h5py
-- CUDA/MPS (optional, for GPU acceleration)
+- Docker
+- Docker Compose (plugin `docker compose`)
 
 ### Installation
 
@@ -155,34 +152,24 @@ Where:
    cd Ray_Serve
    ```
 
-2. **Create virtual environment**:
+2. **Build image once**:
    ```bash
-   python -m venv venv_new
-   source venv_new/bin/activate  # On Windows: venv_new\Scripts\activate
+   docker compose build
    ```
 
-3. **Install dependencies**:
+3. **Verify dataset**:
    ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Verify dataset**:
-   ```bash
-   ls processed/
-   # Should show: sdr_wifi_train.h5, sdr_wifi_val.h5, sdr_wifi_test.h5
+   ls data
+   # Expected structure:
+   # data/raw/...
+   # data/processed/...
    ```
 
 ### Training
 
 ```bash
-# Activate virtual environment
-source venv_new/bin/activate
-
-# Set PYTHONPATH
-export PYTHONPATH=$PWD:$PYTHONPATH
-
-# Train with binary classification config
-python src/train.py --config conf/config_wifi_noise.yaml
+# Train multitask model
+docker compose run --rm train
 ```
 
 The training script automatically:
@@ -196,14 +183,17 @@ The training script automatically:
 ### Evaluation
 
 ```bash
-# Evaluate on test set (if not done automatically)
-python src/evaluate.py --config conf/config_wifi_noise.yaml --checkpoint checkpoints/best_checkpoint.pth
-
-# Evaluate on all splits
-python src/evaluate.py --config conf/config_wifi_noise.yaml --checkpoint checkpoints/best_checkpoint.pth --split all
+# Evaluate on test split
+docker compose run --rm eval
 ```
 
-Evaluation results are saved in `logs/evaluation/`:
+### Serve API (Ray Serve)
+
+```bash
+docker compose --profile serve up serve
+```
+
+Evaluation results are saved in `artifacts/logs/run/evaluation/`:
 - `test_confusion_matrix.png` (absolute values)
 - `test_confusion_matrix_percent.png` (percentages with % symbol)
 - `test_snr_scatter.png`
@@ -269,18 +259,42 @@ curl -X POST http://localhost:8000/infer \
 {
   "predictions": {
     "predicted_class": 1,
-    "predicted_class_name": "WiFi",
+    "predicted_class_name": "wifi",
     "class_probabilities": {
-      "Noise": 0.05,
-      "WiFi": 0.95
+      "wifi": 0.95,
+      "lte": 0.01,
+      "ble": 0.01,
+      "noise": 0.03
     },
     "snr_estimate": 18.5,
     "confidence": 0.95
+  },
+  "orchestration": {
+    "pipeline_status": "completed",
+    "route": "wifi_to_downstream",
+    "downstream": {
+      "module": "link_adaptation",
+      "status": "ok",
+      "recommended_action": "transmit",
+      "recommended_mcs": "MCS5",
+      "modulation": "64-QAM",
+      "code_rate": "2/3"
+    }
   }
 }
 ```
 
-### 2. Health Check
+### 2. Orchestration Decision (Compatibility Endpoint)
+
+```bash
+curl -X POST http://localhost:8000/spectrum \
+  -H "Content-Type: application/json" \
+  -d '{
+    "signal": [[0.1, 0.2], [0.3, 0.4], ...]
+  }'
+```
+
+### 3. Health Check
 
 ```bash
 curl http://localhost:8000/health
@@ -292,7 +306,7 @@ curl http://localhost:8000/health
 
 ```bash
 # Start TensorBoard
-tensorboard --logdir logs/tensorboard
+tensorboard --logdir artifacts/logs/run/tensorboard
 
 # View at http://localhost:6006
 ```
@@ -302,8 +316,8 @@ tensorboard --logdir logs/tensorboard
 Use the parsed training log to generate publication-ready curves:
 
 ```bash
-python src/tools/generate_training_curves.py \
-  --log logs/training.log \
+docker compose run --rm train python src/tools/generate_training_curves.py \
+  --log artifacts/logs/run/training.log \
   --output Images/training_curves.png
 ```
 
@@ -316,23 +330,23 @@ This creates `Images/training_curves.png` with:
 Run a reproducible edge-oriented benchmark (single-thread CPU by default):
 
 ```bash
-python src/tools/benchmark_embedded_inference.py \
+docker compose run --rm train python src/tools/benchmark_embedded_inference.py \
   --config conf/config_wifi_noise.yaml \
-  --checkpoint checkpoints/best_checkpoint.pth \
+  --checkpoint artifacts/checkpoints/main/best_checkpoint.pth \
   --device cpu \
   --threads 1 \
   --batch_size 1 \
   --iterations 300 \
   --warmup 50 \
-  --output logs/embedded_inference_benchmark.json
+  --output artifacts/logs/run/embedded_inference_benchmark.json
 ```
 
 Optional int8 dynamic quantization (CPU only):
 
 ```bash
-python src/tools/benchmark_embedded_inference.py \
+docker compose run --rm train python src/tools/benchmark_embedded_inference.py \
   --config conf/config_wifi_noise.yaml \
-  --checkpoint checkpoints/best_checkpoint.pth \
+  --checkpoint artifacts/checkpoints/main/best_checkpoint.pth \
   --device cpu \
   --threads 1 \
   --quantize
@@ -344,44 +358,46 @@ The benchmark JSON includes:
 - Parameter count and checkpoint epoch
 - Device/thread/quantization configuration
 
-## 🧭 Deep Learning Spectrum Sensing (New)
+## 🧭 Spectrum Sensing (Organizado)
 
-To train spectrum sensing as a dedicated DL task (multi-label channel occupancy), use:
+Todo el pipeline de Spectrum Sensing fue agrupado en `src/spectrum_sensing/`:
+- modelo: `src/spectrum_sensing/model.py`
+- loader: `src/spectrum_sensing/data.py`
+- entrenamiento: `src/spectrum_sensing/train.py`
+- utilidades: `src/spectrum_sensing/tools/`
+
+Entrypoints anteriores en `src/train_spectrum_sensing.py` y `src/tools/*` se mantienen solo por compatibilidad.
 
 1. **Prepare `.bin` dataset to HDF5**:
 
 ```bash
-python src/tools/prepare_spectrum_dataset.py \
-  --input_dir neu_bz61g073z \
-  --output_dir processed_spectrum
+docker compose run --rm spectrum-prepare
 ```
 
 This creates:
-- `processed_spectrum/spectrum_train.h5`
-- `processed_spectrum/spectrum_val.h5`
-- `processed_spectrum/spectrum_test.h5`
-- `processed_spectrum/spectrum_dataset_summary.json`
+- `data/processed/spectrum/spectrum_train.h5`
+- `data/processed/spectrum/spectrum_val.h5`
+- `data/processed/spectrum/spectrum_test.h5`
+- `data/processed/spectrum/spectrum_dataset_summary.json`
 
-2. **Train spectrum sensing model**:
+2. **Train spectrum sensing model (optional)**:
 
 ```bash
-python src/train_spectrum_sensing.py --config conf/config_spectrum_sensing.yaml
+docker compose run --rm spectrum-train
 ```
 
 3. **Compute SNR range directly from `.bin` files**:
 
 ```bash
-python src/tools/compute_snr_range_from_bins.py \
-  --input_dir neu_bz61g073z \
-  --output logs/snr_range_from_bins.json
+docker compose run --rm spectrum-snr-range
 ```
 
 ### Logs
 
-- **Training logs**: `logs/training.log`
-- **Evaluation results**: `logs/evaluation/`
-- **Model checkpoints**: `checkpoints/best_checkpoint.pth`
-- **Final metrics**: `logs/final_metrics.json`
+- **Training logs**: `artifacts/logs/run/training.log`
+- **Evaluation results**: `artifacts/logs/run/evaluation/`
+- **Model checkpoints**: `artifacts/checkpoints/main/best_checkpoint.pth`
+- **Final metrics**: `artifacts/logs/run/final_metrics.json`
 
 ## 🧪 Testing
 
@@ -418,8 +434,8 @@ This project enables research in:
 
 ### Custom Spectrum Sensing Extensions
 
-1. Extend `SpectrumSensingNet` in `src/models/spectrum_sensing_net.py`
-2. Add new channel labels or loss weighting in `conf/config_spectrum_sensing.yaml`
+1. Extend `SpectrumSensingNet` in `src/spectrum_sensing/model.py`
+2. Add new channel labels or loss weighting in `conf/spectrum_sensing/config.yaml`
 3. Update serving logic in `src/serve/app.py` if new outputs are exposed
 
 ### Adjusting Class Weights

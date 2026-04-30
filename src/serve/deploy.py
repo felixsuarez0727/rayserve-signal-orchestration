@@ -52,7 +52,7 @@ def main():
     # Create deployment
     deployment = MultitaskSignalModel.options(
         num_replicas=args.num_replicas,
-        ray_actor_options={"num_cpus": 1, "num_gpus": 0.5}
+        ray_actor_options={"num_cpus": 1, "num_gpus": 0}
     ).bind(config['model']['checkpoint_path'] if 'checkpoint_path' in config.get('model', {}) else args.config)
     
     # Deploy

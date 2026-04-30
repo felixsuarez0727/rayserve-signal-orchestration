@@ -1,0 +1,48 @@
+# Configuration for deep-learning spectrum sensing (multi-label occupancy)
+
+dataset:
+  data_dir: "data/processed/spectrum"
+  signal_length: 128
+  num_channels: 4
+  class_names: ["ch1", "ch2", "ch3", "ch4"]
+
+model:
+  input_channels: 2
+  signal_length: 128
+  num_channels: 4
+  feature_extractor:
+    conv_layers: [64, 128, 256, 512]
+    kernel_sizes: [9, 7, 5, 3]
+    pool_sizes: [2, 2, 2, 2]
+    dropout_rate: 0.3
+  sensing_head:
+    hidden_dims: [512, 256]
+    dropout_rate: 0.4
+  snr_head:
+    enabled: true
+    hidden_dims: [256, 128]
+    dropout_rate: 0.3
+  loss_weights:
+    occupancy_weight: 1.0
+    snr_weight: 0.1
+
+training:
+  batch_size: 64
+  learning_rate: 0.001
+  num_epochs: 30
+  weight_decay: 0.0002
+  checkpoint:
+    checkpoint_dir: "artifacts/checkpoints/spectrum"
+
+logging:
+  level: "INFO"
+  log_dir: "artifacts/logs/run"
+  tensorboard_dir: "artifacts/logs/run/tensorboard_spectrum"
+  log_file: "training_spectrum.log"
+
+hardware:
+  device: "auto"
+  num_workers: 0
+  pin_memory: false
+
+seed: 42

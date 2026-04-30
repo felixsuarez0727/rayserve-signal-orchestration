@@ -15,7 +15,8 @@ from datetime import datetime
 
 # Import our modules
 from src.models.multitask_net import create_model
-from src.opportunistic_sensing.psd import analyze_wifi_signal
+from src.downstream.link_adaptation import LinkAdaptationModule
+from src.orchestrator.pipeline import SignalOrchestrator
 from src.utils.logger import load_config
 from src.utils.seed import get_device
 
@@ -24,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 @serve.deployment(
     num_replicas=2,
-    ray_actor_options={"num_cpus": 1, "num_gpus": 0.5}
+    ray_actor_options={"num_cpus": 1, "num_gpus": 0}
 )
 class MultitaskSignalModel:
     """
@@ -58,6 +59,15 @@ class MultitaskSignalModel:
         
         # Get class names
         self.class_names = self.config['dataset']['class_names']
+        
+        # Build orchestration downstream module
+        downstream_cfg = self.config.get('downstream', {})
+        self.orchestrator = SignalOrchestrator(
+            downstream_module=LinkAdaptationModule(
+                min_confidence=downstream_cfg.get('min_confidence', 0.60),
+                snr_offset_db=downstream_cfg.get('snr_offset_db', 0.0),
+            )
+        )
         
         logger.info("MultitaskSignalModel initialized successfully")
     
@@ -168,24 +178,13 @@ class MultitaskSignalModel:
             # Add metadata
             result = {
                 'predictions': predictions,
+                'orchestration': self.orchestrator.route(predictions),
                 'timestamp': datetime.now().isoformat(),
                 'model_info': {
                     'input_shape': signal_tensor.shape,
                     'device': str(self.device)
                 }
             }
-            
-            # Perform spectrum sensing if WiFi detected
-            if predictions['predicted_class_name'] == 'wifi':
-                try:
-                    spectrum_analysis = analyze_wifi_signal(
-                        np.array(signal_data),
-                        fs=self.config['spectrum_sensing']['fs']
-                    )
-                    result['spectrum_analysis'] = spectrum_analysis
-                except Exception as e:
-                    logger.warning(f"Spectrum analysis failed: {e}")
-                    result['spectrum_analysis'] = {'error': str(e)}
             
             return result
             
@@ -198,7 +197,7 @@ class MultitaskSignalModel:
     
     async def spectrum(self, request: Dict) -> Dict:
         """
-        Spectrum analysis endpoint for WiFi signals.
+        Compatibility endpoint: returns downstream decision details.
         
         Args:
             request: Dictionary containing 'signal' key with I/Q data
@@ -207,17 +206,13 @@ class MultitaskSignalModel:
             Dictionary with spectrum analysis results
         """
         try:
-            # Extract signal data
-            signal_data = request['signal']
-            
-            # Perform spectrum analysis
-            spectrum_analysis = analyze_wifi_signal(
-                np.array(signal_data),
-                fs=self.config['spectrum_sensing']['fs']
-            )
+            # Reuse inference endpoint and expose only orchestration decision
+            infer_result = await self.infer(request)
+            if 'error' in infer_result:
+                return infer_result
             
             return {
-                'spectrum_analysis': spectrum_analysis,
+                'orchestration': infer_result.get('orchestration', {}),
                 'timestamp': datetime.now().isoformat()
             }
             

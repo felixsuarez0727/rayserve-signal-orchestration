@@ -219,14 +219,11 @@ class SpectrumAnalyzer:
         if not np.any(above_threshold):
             return 0.0
         
-        # Find the first and last frequencies above threshold
-        occupied_indices = np.where(above_threshold)[0]
-        first_idx = occupied_indices[0]
-        last_idx = occupied_indices[-1]
-        
-        bandwidth = frequencies[last_idx] - frequencies[first_idx]
-        
-        return bandwidth
+        # Welch with return_onesided=False can yield wrapped frequency ordering.
+        # Use min/max occupied frequency to guarantee a non-negative span.
+        occupied_freqs = frequencies[above_threshold]
+        bandwidth = float(np.max(occupied_freqs) - np.min(occupied_freqs))
+        return max(0.0, bandwidth)
     
     def estimate_snr(
         self,

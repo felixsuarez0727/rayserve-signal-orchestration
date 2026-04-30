@@ -1,0 +1,117 @@
+[
+  {
+    "input": {
+      "predicted_class_name": "noise",
+      "snr_estimate": 0,
+      "confidence": 0.99
+    },
+    "output": {
+      "module": "link_adaptation",
+      "status": "skipped",
+      "reason": "non_wifi_prediction",
+      "recommended_action": "no_link_adaptation_required",
+      "recommended_mcs": null
+    }
+  },
+  {
+    "input": {
+      "predicted_class_name": "wifi",
+      "snr_estimate": 22,
+      "confidence": 0.55
+    },
+    "output": {
+      "module": "link_adaptation",
+      "status": "deferred",
+      "reason": "low_confidence",
+      "recommended_action": "defer_transmission_and_resense",
+      "recommended_mcs": null,
+      "min_confidence": 0.6,
+      "observed_confidence": 0.55
+    }
+  },
+  {
+    "input": {
+      "predicted_class_name": "wifi",
+      "snr_estimate": 4.0,
+      "confidence": 0.95
+    },
+    "output": {
+      "module": "link_adaptation",
+      "status": "ok",
+      "recommended_action": "transmit",
+      "recommended_mcs": "MCS0",
+      "modulation": "BPSK",
+      "code_rate": "1/2",
+      "snr_db": 4.0,
+      "confidence": 0.95
+    }
+  },
+  {
+    "input": {
+      "predicted_class_name": "wifi",
+      "snr_estimate": 12.0,
+      "confidence": 0.95
+    },
+    "output": {
+      "module": "link_adaptation",
+      "status": "ok",
+      "recommended_action": "transmit",
+      "recommended_mcs": "MCS3",
+      "modulation": "16-QAM",
+      "code_rate": "1/2",
+      "snr_db": 12.0,
+      "confidence": 0.95
+    }
+  },
+  {
+    "input": {
+      "predicted_class_name": "wifi",
+      "snr_estimate": 18.0,
+      "confidence": 0.95
+    },
+    "output": {
+      "module": "link_adaptation",
+      "status": "ok",
+      "recommended_action": "transmit",
+      "recommended_mcs": "MCS5",
+      "modulation": "64-QAM",
+      "code_rate": "2/3",
+      "snr_db": 18.0,
+      "confidence": 0.95
+    }
+  },
+  {
+    "input": {
+      "predicted_class_name": "wifi",
+      "snr_estimate": 24.0,
+      "confidence": 0.95
+    },
+    "output": {
+      "module": "link_adaptation",
+      "status": "ok",
+      "recommended_action": "transmit",
+      "recommended_mcs": "MCS7",
+      "modulation": "64-QAM",
+      "code_rate": "5/6",
+      "snr_db": 24.0,
+      "confidence": 0.95
+    }
+  },
+  {
+    "input": {
+      "predicted_class_name": "wifi",
+      "snr_estimate": 31.0,
+      "confidence": 0.95
+    },
+    "output": {
+      "module": "link_adaptation",
+      "status": "ok",
+      "recommended_action": "transmit",
+      "recommended_mcs": "MCS9",
+      "modulation": "256-QAM",
+      "code_rate": "5/6",
+      "snr_db": 31.0,
+      "confidence": 0.95
+    }
+  }
+]

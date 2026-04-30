@@ -1,0 +1,163 @@
+{
+  "dataset": "sdr_wifi_test.hdf5",
+  "samples": 31997,
+  "search_space": {
+    "min_confidence": [
+      0.55,
+      0.6,
+      0.65,
+      0.7,
+      0.75
+    ],
+    "snr_offset_db": [
+      -6.0,
+      -4.0,
+      -2.0,
+      0.0,
+      2.0,
+      4.0
+    ]
+  },
+  "baseline": {
+    "min_confidence": 0.6,
+    "snr_offset_db": 0.0,
+    "utility": 0.600003,
+    "ok_rate": 0.776823,
+    "defer_rate": 0.004063,
+    "skip_rate": 0.219114,
+    "mean_mcs_index": 5.55552,
+    "mcs_entropy_norm": 0.298853,
+    "status_counts": {
+      "ok": 24856,
+      "skipped": 7011,
+      "deferred": 130
+    },
+    "mcs_counts": {
+      "MCS5": 11051,
+      "MCS6": 13802,
+      "MCS7": 3
+    }
+  },
+  "best": {
+    "min_confidence": 0.55,
+    "snr_offset_db": 4.0,
+    "utility": 0.662042,
+    "ok_rate": 0.778698,
+    "defer_rate": 0.002188,
+    "skip_rate": 0.219114,
+    "mean_mcs_index": 6.996067,
+    "mcs_entropy_norm": 0.011978,
+    "status_counts": {
+      "ok": 24916,
+      "skipped": 7011,
+      "deferred": 70
+    },
+    "mcs_counts": {
+      "MCS7": 24812,
+      "MCS6": 101,
+      "MCS8": 3
+    }
+  },
+  "top5": [
+    {
+      "min_confidence": 0.55,
+      "snr_offset_db": 4.0,
+      "utility": 0.662042,
+      "ok_rate": 0.778698,
+      "defer_rate": 0.002188,
+      "skip_rate": 0.219114,
+      "mean_mcs_index": 6.996067,
+      "mcs_entropy_norm": 0.011978,
+      "status_counts": {
+        "ok": 24916,
+        "skipped": 7011,
+        "deferred": 70
+      },
+      "mcs_counts": {
+        "MCS7": 24812,
+        "MCS6": 101,
+        "MCS8": 3
+      }
+    },
+    {
+      "min_confidence": 0.6,
+      "snr_offset_db": 4.0,
+      "utility": 0.661014,
+      "ok_rate": 0.776823,
+      "defer_rate": 0.004063,
+      "skip_rate": 0.219114,
+      "mean_mcs_index": 6.996057,
+      "mcs_entropy_norm": 0.012002,
+      "status_counts": {
+        "ok": 24856,
+        "skipped": 7011,
+        "deferred": 130
+      },
+      "mcs_counts": {
+        "MCS7": 24752,
+        "MCS6": 101,
+        "MCS8": 3
+      }
+    },
+    {
+      "min_confidence": 0.65,
+      "snr_offset_db": 4.0,
+      "utility": 0.659763,
+      "ok_rate": 0.774541,
+      "defer_rate": 0.006344,
+      "skip_rate": 0.219114,
+      "mean_mcs_index": 6.996046,
+      "mcs_entropy_norm": 0.012032,
+      "status_counts": {
+        "ok": 24783,
+        "skipped": 7011,
+        "deferred": 203
+      },
+      "mcs_counts": {
+        "MCS7": 24679,
+        "MCS6": 101,
+        "MCS8": 3
+      }
+    },
+    {
+      "min_confidence": 0.7,
+      "snr_offset_db": 4.0,
+      "utility": 0.658494,
+      "ok_rate": 0.772229,
+      "defer_rate": 0.008657,
+      "skip_rate": 0.219114,
+      "mean_mcs_index": 6.996034,
+      "mcs_entropy_norm": 0.012063,
+      "status_counts": {
+        "ok": 24709,
+        "skipped": 7011,
+        "deferred": 277
+      },
+      "mcs_counts": {
+        "MCS7": 24605,
+        "MCS6": 101,
+        "MCS8": 3
+      }
+    },
+    {
+      "min_confidence": 0.75,
+      "snr_offset_db": 4.0,
+      "utility": 0.657094,
+      "ok_rate": 0.769697,
+      "defer_rate": 0.011189,
+      "skip_rate": 0.219114,
+      "mean_mcs_index": 6.996061,
+      "mcs_entropy_norm": 0.012,
+      "status_counts": {
+        "ok": 24628,
+        "skipped": 7011,
+        "deferred": 358
+      },
+      "mcs_counts": {
+        "MCS7": 24525,
+        "MCS6": 100,
+        "MCS8": 3
+      }
+    }
+  ]
+}

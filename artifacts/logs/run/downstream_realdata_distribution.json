@@ -1,0 +1,62 @@
+{
+  "dataset": "sdr_wifi_test.hdf5",
+  "samples": 31997,
+  "true_binary_distribution": {
+    "WiFi": {
+      "count": 30047,
+      "pct": 93.91
+    },
+    "Noise": {
+      "count": 1950,
+      "pct": 6.09
+    }
+  },
+  "predicted_class_distribution": {
+    "WiFi": {
+      "count": 24986,
+      "pct": 78.09
+    },
+    "Noise": {
+      "count": 7011,
+      "pct": 21.91
+    }
+  },
+  "route_distribution": {
+    "signal_to_downstream": {
+      "count": 24986,
+      "pct": 78.09
+    },
+    "noise_exit": {
+      "count": 7011,
+      "pct": 21.91
+    }
+  },
+  "downstream_status_distribution": {
+    "ok": {
+      "count": 24856,
+      "pct": 77.68
+    },
+    "skipped": {
+      "count": 7011,
+      "pct": 21.91
+    },
+    "deferred": {
+      "count": 130,
+      "pct": 0.41
+    }
+  },
+  "mcs_distribution": {
+    "MCS5": {
+      "count": 11051,
+      "pct": 34.54
+    },
+    "MCS6": {
+      "count": 13802,
+      "pct": 43.14
+    },
+    "MCS7": {
+      "count": 3,
+      "pct": 0.01
+    }
+  }
+}

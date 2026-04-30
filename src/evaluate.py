@@ -263,7 +263,7 @@ def main():
     parser.add_argument('--split', type=str, default='test',
                        choices=['train', 'val', 'test', 'all'],
                        help='Dataset split to evaluate')
-    parser.add_argument('--output_dir', type=str, default='logs/evaluation',
+    parser.add_argument('--output_dir', type=str, default='artifacts/logs/run/evaluation',
                        help='Directory to save evaluation results')
     parser.add_argument('--device', type=str, default='auto',
                        help='Device to use (auto, cpu, cuda, mps)')

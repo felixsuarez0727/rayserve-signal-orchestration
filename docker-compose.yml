@@ -1,0 +1,56 @@
+services:
+  serve:
+    build: .
+    image: rayserve-signal-orchestration:latest
+    command: python src/serve/deploy.py --config conf/config.yaml --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    working_dir: /app
+    profiles: ["serve"]
+
+  train:
+    build: .
+    image: rayserve-signal-orchestration:latest
+    command: python src/train.py --config conf/config.yaml --device auto
+    volumes:
+      - .:/app
+    working_dir: /app
+    profiles: ["train"]
+
+  eval:
+    build: .
+    image: rayserve-signal-orchestration:latest
+    command: python src/evaluate.py --config conf/config.yaml --checkpoint artifacts/checkpoints/main/best_checkpoint.pth --split test
+    volumes:
+      - .:/app
+    working_dir: /app
+    profiles: ["eval"]
+
+  spectrum-prepare:
+    build: .
+    image: rayserve-signal-orchestration:latest
+    command: python src/spectrum_sensing/tools/prepare_dataset.py --input_dir data/raw/neu_bz61g073z --output_dir data/processed/spectrum
+    volumes:
+      - .:/app
+    working_dir: /app
+    profiles: ["spectrum"]
+
+  spectrum-train:
+    build: .
+    image: rayserve-signal-orchestration:latest
+    command: python src/spectrum_sensing/train.py --config conf/spectrum_sensing/config.yaml --device auto
+    volumes:
+      - .:/app
+    working_dir: /app
+    profiles: ["spectrum"]
+
+  spectrum-snr-range:
+    build: .
+    image: rayserve-signal-orchestration:latest
+    command: python src/spectrum_sensing/tools/compute_snr_range.py --input_dir data/raw/neu_bz61g073z --output artifacts/logs/run/snr_range_from_bins.json
+    volumes:
+      - .:/app
+    working_dir: /app
+    profiles: ["spectrum"]

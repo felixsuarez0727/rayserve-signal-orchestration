@@ -47,13 +47,13 @@ training:
   checkpoint:
     save_best: true
     save_last: true
-    checkpoint_dir: "checkpoints"
+    checkpoint_dir: "artifacts/checkpoints/main"
 
 # Logging Configuration
 logging:
   level: "INFO"
-  log_dir: "logs"
-  tensorboard_dir: "logs/tensorboard"
+  log_dir: "artifacts/logs/run"
+  tensorboard_dir: "artifacts/logs/run/tensorboard"
   log_file: "training.log"
 
 # Hardware Configuration

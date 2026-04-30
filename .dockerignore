@@ -1,0 +1,9 @@
+.git
+.venv
+.DS_Store
+artifacts
+data/raw
+data/processed
+images
+ui
+*.log

@@ -1,0 +1,133 @@
+{
+  "total_cases": 7,
+  "passed_cases": 7,
+  "pass_rate": 1.0,
+  "details": [
+    {
+      "input": {
+        "predicted_class_name": "noise",
+        "snr_estimate": 0.0,
+        "confidence": 0.99
+      },
+      "expected": [
+        "noise_exit",
+        "skipped",
+        null
+      ],
+      "observed": [
+        "noise_exit",
+        "skipped",
+        null
+      ],
+      "pass": true
+    },
+    {
+      "input": {
+        "predicted_class_name": "wifi",
+        "snr_estimate": 22.0,
+        "confidence": 0.55
+      },
+      "expected": [
+        "signal_to_downstream",
+        "deferred",
+        null
+      ],
+      "observed": [
+        "signal_to_downstream",
+        "deferred",
+        null
+      ],
+      "pass": true
+    },
+    {
+      "input": {
+        "predicted_class_name": "wifi",
+        "snr_estimate": 4.0,
+        "confidence": 0.95
+      },
+      "expected": [
+        "signal_to_downstream",
+        "ok",
+        "MCS0"
+      ],
+      "observed": [
+        "signal_to_downstream",
+        "ok",
+        "MCS0"
+      ],
+      "pass": true
+    },
+    {
+      "input": {
+        "predicted_class_name": "wifi",
+        "snr_estimate": 12.0,
+        "confidence": 0.95
+      },
+      "expected": [
+        "signal_to_downstream",
+        "ok",
+        "MCS3"
+      ],
+      "observed": [
+        "signal_to_downstream",
+        "ok",
+        "MCS3"
+      ],
+      "pass": true
+    },
+    {
+      "input": {
+        "predicted_class_name": "wifi",
+        "snr_estimate": 18.0,
+        "confidence": 0.95
+      },
+      "expected": [
+        "signal_to_downstream",
+        "ok",
+        "MCS5"
+      ],
+      "observed": [
+        "signal_to_downstream",
+        "ok",
+        "MCS5"
+      ],
+      "pass": true
+    },
+    {
+      "input": {
+        "predicted_class_name": "wifi",
+        "snr_estimate": 24.0,
+        "confidence": 0.95
+      },
+      "expected": [
+        "signal_to_downstream",
+        "ok",
+        "MCS7"
+      ],
+      "observed": [
+        "signal_to_downstream",
+        "ok",
+        "MCS7"
+      ],
+      "pass": true
+    },
+    {
+      "input": {
+        "predicted_class_name": "wifi",
+        "snr_estimate": 31.0,
+        "confidence": 0.95
+      },
+      "expected": [
+        "signal_to_downstream",
+        "ok",
+        "MCS9"
+      ],
+      "observed": [
+        "signal_to_downstream",
+        "ok",
+        "MCS9"
+      ],
+      "pass": true
+    }
+  ]
+}

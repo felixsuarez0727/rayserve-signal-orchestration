@@ -18,14 +18,18 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements first for better caching
 COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install CPU-only PyTorch first to avoid massive CUDA downloads in container
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch torchvision
+
+# Install remaining project dependencies
+RUN grep -vE '^(torch|torchvision)' requirements.txt > requirements.docker.txt \
+    && pip install --no-cache-dir -r requirements.docker.txt
 
 # Copy project files
 COPY . .
 
 # Create necessary directories
-RUN mkdir -p logs checkpoints processed
+RUN mkdir -p artifacts/logs/run artifacts/checkpoints/main processed data/raw data/processed
 
 # Set environment variables
 ENV PYTHONPATH=/app

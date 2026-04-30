@@ -1,5 +1,5 @@
 """
-Generate training curves from logs/training.log.
+Generate training curves from artifacts/logs/run/training.log.
 """
 
 import argparse
@@ -95,7 +95,7 @@ def plot_curves(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate training curves from a training log")
-    parser.add_argument("--log", type=str, default="logs/training.log", help="Path to training.log")
+    parser.add_argument("--log", type=str, default="artifacts/logs/run/training.log", help="Path to training.log")
     parser.add_argument(
         "--output",
         type=str,

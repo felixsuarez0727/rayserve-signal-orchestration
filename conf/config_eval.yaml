@@ -52,7 +52,7 @@ training:
     
 # Checkpoint Configuration
 checkpoint:
-  save_dir: "checkpoints"
+  save_dir: "artifacts/checkpoints/main"
   save_best_only: True
   
 # Ray Serve Configuration
@@ -72,8 +72,8 @@ api_endpoints:
 # Logging Configuration
 logging:
   level: "INFO"
-  log_dir: "logs"
-  tensorboard_dir: "logs/tensorboard"
+  log_dir: "artifacts/logs/run"
+  tensorboard_dir: "artifacts/logs/run/tensorboard"
   log_file: "training.log"
   
 # Hardware Configuration

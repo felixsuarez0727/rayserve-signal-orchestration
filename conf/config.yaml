@@ -51,7 +51,7 @@ training:
   checkpoint:
     save_best: true
     save_last: true
-    checkpoint_dir: "checkpoints"
+    checkpoint_dir: "artifacts/checkpoints/main"
     
 # Evaluation Configuration
 evaluation:
@@ -65,14 +65,11 @@ evaluation:
     - "mse"  # Mean Squared Error for SNR
     - "r2_score"  # R-squared for SNR
     
-# Spectrum Sensing Configuration
-spectrum_sensing:
-  psd_method: "welch"
-  nperseg: 64
-  noverlap: 32
-  nfft: 128
-  fs: 20e6  # Sampling frequency in Hz
-  threshold_db: -80  # Threshold for occupancy detection
+# Downstream Decision Configuration
+downstream:
+  module: "link_adaptation"
+  min_confidence: 0.60
+  snr_offset_db: 4.0
   
 # Ray Serve Configuration
 ray_serve:
@@ -83,7 +80,7 @@ ray_serve:
   
   endpoints:
     infer: "/infer"
-    spectrum: "/spectrum"
+    spectrum: "/spectrum"  # compatibility endpoint (returns orchestration decision)
     feedback: "/feedback"
     metrics: "/metrics"
     health: "/health"
@@ -91,9 +88,9 @@ ray_serve:
 # Logging Configuration
 logging:
   level: "INFO"
-  log_dir: "logs"
-  tensorboard_dir: "logs/tensorboard"
-  log_file: "logs/training.log"
+  log_dir: "artifacts/logs/run"
+  tensorboard_dir: "artifacts/logs/run/tensorboard"
+  log_file: "artifacts/logs/run/training.log"
   
 # Hardware Configuration
 hardware:

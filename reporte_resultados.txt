@@ -3,9 +3,9 @@ Fecha: 2026-04-21
 Proyecto: rayserve-signal-orchestration
 
 1) RANGO SNR CALCULADO DIRECTAMENTE DEL DATASET
-- Dataset usado: neu_bz61g073z (archivos .bin)
+- Dataset usado: data/raw/neu_bz61g073z (archivos .bin)
 - Metodo: estimacion de SNR por ventana de 128 muestras I/Q (potencia media vs percentil 10 como piso de ruido)
-- Archivo de salida: logs/snr_range_from_bins.json
+- Archivo de salida: artifacts/logs/run/snr_range_from_bins.json
 
 Resumen SNR:
 - Global:
@@ -26,25 +26,66 @@ Resumen SNR:
 
 2) LO SOLICITADO SOBRE SPECTRUM SENSING CON DEEP LEARNING
 - Se implemento una red neuronal separada para spectrum sensing (en vez de usar solo modulo clasico PSD):
-  - Modelo: src/models/spectrum_sensing_net.py
-  - Entrenamiento: src/train_spectrum_sensing.py
-  - Loader H5: src/data/spectrum_h5_loader.py
-  - Config principal: conf/config_spectrum_sensing.yaml
+  - Modelo: src/spectrum_sensing/model.py
+  - Entrenamiento: src/spectrum_sensing/train.py
+  - Loader H5: src/spectrum_sensing/data.py
+  - Config principal: conf/spectrum_sensing/config.yaml
 
 - Se implemento preprocesado desde .bin a H5 para entrenamiento:
-  - Script: src/tools/prepare_spectrum_dataset.py
-  - Salida completa: processed_spectrum/
-  - Salida subset rapido: processed_spectrum_small/
+  - Script: src/spectrum_sensing/tools/prepare_dataset.py
+  - Salida completa: data/processed/spectrum/
+  - Salida subset rapido: data/processed/spectrum_small/
 
 - Se hizo validacion end-to-end (smoke test) del entrenamiento DL:
-  - Config usada: conf/config_spectrum_sensing_small.yaml (1 epoca)
-  - Log: logs/training_spectrum_small.log
+  - Config usada: conf/spectrum_sensing/config_small.yaml (1 epoca)
+  - Log: artifacts/logs/run/training_spectrum_small.log
   - Resultado test:
     exact_match = 0.1970
     macro_f1 = 0.6053
 
-3) OTROS ARTEFACTOS GENERADOS
+3) VALIDACION DEL REEMPLAZO DE SPECTRUM SENSING (DOCKER)
+- Pruebas unitarias e integracion:
+  - Comando: docker compose --profile train run --rm train python -m unittest tests/test_orchestrator.py tests/test_infer_mock.py
+  - Resultado: 20/20 pruebas exitosas
+- Validacion deterministica del modulo downstream:
+  - Archivo: artifacts/logs/run/downstream_orchestration_validation.json
+  - Casos evaluados: 7
+  - Casos correctos: 7
+  - Tasa de acierto: 100%
+- Validacion final sobre datos reales:
+  - Dataset: sdr_wifi_test.hdf5
+  - Muestras: 31,997
+  - Distribucion de decisiones downstream:
+    - ok: 24,856 (77.68%)
+    - skipped: 7,011 (21.91%)
+    - deferred: 130 (0.41%)
+  - Distribucion de MCS (sobre salida con MCS):
+    - MCS6: 13,802 (43.14%)
+    - MCS5: 11,051 (34.54%)
+    - MCS7: 3 (0.01%)
+  - Archivo: artifacts/logs/run/downstream_realdata_distribution.json
+
+5) OPTIMIZACION DE UMBRALES LINK ADAPTATION (GRID SEARCH)
+- Script: src/tools/tune_link_adaptation.py
+- Archivo de salida: artifacts/logs/run/link_adaptation_tuning.json
+- Baseline:
+  - min_confidence = 0.60
+  - snr_offset_db = 0.0
+  - utility = 0.600003
+  - deferred = 130
+  - mean_mcs_index = 5.5555
+- Mejor configuracion:
+  - min_confidence = 0.55
+  - snr_offset_db = +4.0
+  - utility = 0.662042 (+10.3%)
+  - deferred = 70 (-46.2%)
+  - mean_mcs_index = 6.9961
+- Smoke test de servicio (Ray Serve en Docker):
+  - health endpoint: OK
+  - infer/spectrum: retornan payload de orquestacion con decision downstream
+
+4) OTROS ARTEFACTOS GENERADOS
 - Ejemplo real de salida de spectrum analysis:
-  - logs/spectrum_analysis_sample.json
+  - artifacts/logs/run/spectrum_analysis_sample.json
 - Resumen de dataset preparado:
-  - processed_spectrum/spectrum_dataset_summary.json
+  - data/processed/spectrum/spectrum_dataset_summary.json

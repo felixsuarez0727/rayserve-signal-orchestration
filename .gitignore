@@ -14,4 +14,4 @@ artifacts/logs/run/embedded_inference_benchmark*.json
 artifacts/logs/run/snr_range_from_bins.json
 artifacts/logs/run/spectrum_analysis_sample.json
 artifacts/logs/run/spectrum_final_metrics.json
-artifacts/logs/run/spectrum_per_channel_metrics.json
+artifacts/logs/run/spectrum_per_channel_metrics.jsonmain.tex

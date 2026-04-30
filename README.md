@@ -358,15 +358,15 @@ The benchmark JSON includes:
 - Parameter count and checkpoint epoch
 - Device/thread/quantization configuration
 
-## 🧭 Spectrum Sensing (Organizado)
+## 🧭 Spectrum Sensing (Organized)
 
-Todo el pipeline de Spectrum Sensing fue agrupado en `src/spectrum_sensing/`:
-- modelo: `src/spectrum_sensing/model.py`
+The entire Spectrum Sensing pipeline has been grouped under `src/spectrum_sensing/`:
+- model: `src/spectrum_sensing/model.py`
 - loader: `src/spectrum_sensing/data.py`
-- entrenamiento: `src/spectrum_sensing/train.py`
-- utilidades: `src/spectrum_sensing/tools/`
+- training: `src/spectrum_sensing/train.py`
+- utilities: `src/spectrum_sensing/tools/`
 
-Entrypoints anteriores en `src/train_spectrum_sensing.py` y `src/tools/*` se mantienen solo por compatibilidad.
+Legacy entrypoints in `src/train_spectrum_sensing.py` and `src/tools/*` are kept for backward compatibility only.
 
 1. **Prepare `.bin` dataset to HDF5**:
 

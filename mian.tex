@@ -1,0 +1,214 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{float} 
+\usepackage{url}
+\usepackage{threeparttable}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\title{Multitask Deep Learning for WiFi Detection, SNR Estimation, and Decision-Aware Orchestration}
+
+\author{
+\IEEEauthorblockN{Félix D. Suárez Bonilla, Jose M. de la Rosa, G. Liñán-Cembrano}
+\IEEEauthorblockA{Instituto de Microelectrónica de Sevilla, IMSE-CNM (CSIC/Universidad de Sevilla), Spain\\
+Email: felix.suarez@imse-cnm.csic.es}
+\thanks{The authors acknowledge the limited use of artificial intelligence tools to assist with manuscript preparation, specifically for writing assistance and style revision. All content has been thoroughly reviewed, validated, and remains the full responsibility of the authors.}
+\thanks{This work was supported by the European Union's Recovery and Resilience Facility-Next Generation, in the framework of the General Invitation of the Spanish Government's public business entity Red.es; by PID2022-138078OB-I00 and PDC2023-145808-I00, funded by Ministerio de Ciencia, Innovación y Universidades (MICIU)/Agencia Estatal de Investigación (AEI)/10.13039/501100011033; and by grant USECHIP (TSI-069100-2023-001), funded by the Secretary of State for Telecommunications and Digital Infrastructure, Ministry for Digital Transformation and Civil Service, and by the European Union–NextGenerationEU, by European Regional Development Fund (ERDF) A way of making Europe.}
+}
+
+\maketitle
+
+\begin{abstract}
+Cognitive radio systems require simultaneous knowledge of whether a channel is occupied and how strong the received signal is; two tasks that most existing approaches handle separately, at the cost of duplicated computation and increased model size. This paper proposes a multitask deep learning framework that solves both problems jointly using a single shared convolutional backbone, trained entirely on real Software-Defined Radio (SDR) captures rather than simulated data. The backbone feeds two specialized output heads: one for binary WiFi detection and one for signal-to-noise ratio regression. The inference flow includes a decision-aware downstream stage triggered only for WiFi-positive detections, enabling link-adaptation recommendations without adding a second deep model in the critical path. The model achieves 96.29\% classification accuracy and a mean absolute error of 0.32~dB in SNR estimation; additionally, in its quantized benchmark configuration, the effective parameter footprint is reduced to 618K parameters.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Deep learning, WiFi detection, SNR estimation, multitask learning, software-defined radio, cognitive radio, convolutional neural networks
+\end{IEEEkeywords}
+
+\section{Introduction}
+
+Growing device density demands dynamic spectrum sharing. In cognitive radio, this operationally translates into channel-occupancy detection and signal-quality estimation \cite{li2020deep,kim2020deep,gao2019deep}. Traditional energy detection and matched filtering have known limitations \cite{wang2021spectrum}, while convolutional neural networks (CNNs) extract features from raw in-phase/quadrature (I/Q) samples automatically \cite{zhang2022deep,gao2019deep}. However, most works still treat detection and SNR estimation as separate tasks \cite{chen2021multitask,jeevangi2022deep,li2024multitask}, duplicating computation and increasing model complexity.
+
+We propose a multitask framework that unifies both tasks through shared feature extraction. This design reduces model complexity, promotes generalization by sharing intermediate representations across tasks, and enables simultaneous operation without the overhead of independent pipelines.
+
+This work makes three main contributions. First, a multitask architecture achieving 96.29\% classification accuracy and 0.32~dB mean absolute error (MAE) on real SDR data. Second, an inference orchestration strategy in which a pluggable downstream decision module is executed only after WiFi-positive detections. Third, an efficiency analysis that includes both model-sharing gains in the base configuration and footprint reduction in a quantized benchmark configuration.
+
+\section{Related Work}
+
+Deep learning has progressively replaced traditional handcrafted pipelines for channel analysis \cite{syed2023dnn,gao2019deep,zhang2023review}. Early CNN approaches were limited by data and computational constraints \cite{oshea2016convolutional}, but subsequent work demonstrated spectral pattern learning on simulated I/Q data \cite{gao2019deep}, robust wideband sensing at low SNR \cite{zhang2023robust}, and lightweight spectrogram architectures for Internet of Things (IoT) monitoring \cite{benazzouza2024novel}. On the signal classification side, Shebert et al.~\cite{shebert2021wireless} reached 94.5\% on synthetic Long-Term Evolution (LTE), 5G New Radio (NR), WiFi~6, and Bluetooth Low Energy (BLE) data, while O'Shea et al.~\cite{oshea2018over} documented 64--80\% accuracy drops when deploying synthetic-trained models on real SDR captures—a gap that motivates our use of over-the-air data. CNN-LSTM (Long Short-Term Memory, LSTM) \cite{roh2022deep} and transformer \cite{kumar2023automatic} architectures have also been explored for this task.
+
+Multitask approaches have gained traction as a way to reduce inference cost. DSINet \cite{kim2023multitask} achieved a 65.5\% parameter reduction for joint classification, modulation recognition, power estimation, and occupancy detection on synthetic data, while Zhang et al.~\cite{zhang2021efficient} combined modulation classification with SNR estimation at over 93\% accuracy. Jeevangi et al.~\cite{jeevangi2022deep} paired SNR estimation with adaptive detector selection, reporting 92.5\% detection rate and 1.2~dB MAE. Li et al.~\cite{li2024multitask} extended multitask learning to 5G NR signal recognition using both real and synthetic data. Chen et al.~\cite{chen2021multitask} demonstrated multitask CNNs on simulated signals but did not address class imbalance, a limitation that degrades minority-class performance in realistic deployments. Table~\ref{tab:related_work_modern} summarizes recent approaches; our work distinguishes itself by combining real SDR training data, systematic imbalance handling, and competitive accuracy with lower model duplication than equivalent separate-task alternatives.
+
+\begin{table*}[!t]
+\centering
+\caption{Comparison of Deep Learning Approaches for Signal Classification and Decision-Aware Orchestration (2020-2024)}
+\label{tab:related_work_modern}
+\resizebox{\textwidth}{!}{%
+\begin{threeparttable}
+\begin{tabular}{|l|l|c|c|c|c|}
+\hline
+\textbf{Method} & \textbf{Accuracy / Performance} & \textbf{\# Classes} & \textbf{Technologies} & \textbf{Dataset Type\textsuperscript{a}} & \textbf{Model Complexity\textsuperscript{b}} \\
+\hline
+\textbf{This Work} & \textbf{96.29\% (Classification)} & \textbf{2} & \textbf{WiFi, Noise} & \textbf{OTA} & \textbf{Low ($\sim$618k quantized)\textsuperscript{c}} \\
+ & \textbf{0.32 dB MAE (SNR Est.)} & & & & \\
+ & \textbf{77.68\% actionable decisions on real test data\textsuperscript{d}} & & & & \\
+\hline
+Kim et al. 2023 \cite{kim2023multitask} & 98.2\% (Signal Class.) & 4 & WiFi, LTE, BLE, Long Range (LoRa) & SYN & Medium (1.2M params) \\
+(DSINet) & 0.89 dB root mean squared error (RMSE) (Power Est.) & & & & \\
+\hline
+Benazzouza et al. 2024 \cite{benazzouza2024novel} & 95.7\% at 0 dB & 5 & WiFi, LTE, 5G, BLE, ZigBee & SYN & Very Low (45k params) \\
+\hline
+Li et al. 2024 \cite{li2024multitask} & 94.1\% (Multitask) & 3 & 5G NR, LTE, WiFi 6 & OTA \& SYN & Medium (850k params) \\
+\hline
+Zhang et al. 2023 \cite{zhang2023robust} & 93.8\% at -10 dB & Variable & Wideband Signals & SYN & High (3.4M params) \\
+\hline
+Jeevangi et al. 2022 \cite{jeevangi2022deep} & 92.5\% Detection Rate & 2 & Primary User (PU) Signal, Noise & SYN & Low (380k params) \\
+ & 1.2 dB MAE (SNR Est.) & & & & \\
+\hline
+Roh et al. 2022 \cite{roh2022deep} & 94.7\% at SNR $>$ -5 dB & 4 & WiFi, ZigBee, BLE, LoRa & SYN & Medium (720k params) \\
+\hline
+Chen et al. 2021 \cite{chen2021multitask} & 93.7\% (Classification) & 6 & Multiple Modulations & SYN & Low (650k params) \\
+ & 1.5 dB MAE (SNR Est.) & & & & \\
+\hline
+Shebert et al. 2021 \cite{shebert2021wireless} & 94.5\% at SNR $>$ 0 dB & 6 & LTE downlink/uplink (DL/UL), 5G NR DL/UL, & SYN & High (2.1M - 67.1M params) \\
+ & & & WiFi 6, BLE 5.0 & & \\
+\hline
+Kim et al. 2020 \cite{kim2020deep} & 91.3\% at -5 dB & 3 & LTE, WiFi, Digital Video Broadcasting - Terrestrial (DVB-T) & SYN & Medium (1.1M params) \\
+\hline
+Li et al. 2020 \cite{li2020deep} & 89.7\% Detection & 2 & Signal, Noise & SYN & Low (420k params) \\
+\hline
+\end{tabular}
+\begin{tablenotes}
+\item[a] OTA: Over-the-Air (real-world SDR captures) / SYN: Synthetic (simulated signals)
+\item[b] Complexity categorization: Very Low ($<$100k), Low (100k-1M), Medium (1M-3M), High ($>$3M params)
+\item[c] Base (non-quantized) configuration of this work has 3.93M parameters; the reported value in the table corresponds to the quantized benchmark footprint.
+\item[d] Actionable decision rate corresponds to downstream \texttt{ok} outputs on \texttt{sdr\_wifi\_test.hdf5} (31,997 samples); complementary deterministic validation reached 7/7 canonical cases.
+\item Note: Table sorted by publication year (most recent first). All works address at least one modern wireless technology (LTE, 5G, WiFi 6, BLE, etc.). SNR estimation metrics reported where applicable.
+\end{tablenotes}
+\end{threeparttable}
+}
+\end{table*}
+
+Our work addresses gaps that persist across this literature: real SDR training data for WiFi detection, explicit class imbalance handling, ablation studies quantifying multitask benefits, and competitive accuracy under real-data conditions. Importantly, direct metric comparisons must be interpreted with dataset realism in mind: many reported results are obtained on synthetic data, while our model is trained and evaluated on over-the-air captures, a setting that is typically more challenging but operationally more relevant.
+
+\section{Methodology}
+
+We use the SDR 802.11 a/g over-the-air dataset distributed by Northeastern University (Daniel Uvaydov, 2021), available in this repository preprocessing pipeline. The dataset contains 2,512 real-world SDR captures in Hierarchical Data Format version 5 (HDF5), split into training (1,758), validation (377), and test (377) sets; each sample contains 128 complex I/Q pairs. Original multi-hot labels were converted to binary targets: $[0,0,0,0]$ for Noise, and any non-zero entry for WiFi. This yields an approximate 7:1 training imbalance (1,538 WiFi vs. 220 Noise samples), handled using the weighted loss described below.
+
+All code, configuration files, and experiment scripts are available in the public repository: \url{https://github.com/felixsuarez0727/rayserve-signal-orchestration}. The repository also includes a Ray Serve-based inference API for deployment-oriented integration.
+
+The model is built around a shared convolutional backbone that feeds two task-specific heads, exploiting the inherent relationship between detection features and channel quality information. The backbone processes inputs of shape (\textit{batch}, 2, 128) through four convolutional blocks with increasing filter counts (64, 128, 256, 512) and decreasing kernel sizes (9, 7, 5, 3); each block applies 1D convolution, batch normalization, Rectified Linear Unit (ReLU), max pooling (stride 2), and dropout (0.3). The classification head maps the flattened representation through fully connected (FC) layers of dimensions 512 and 256 (ReLU, dropout 0.4) to a two-logit softmax output. The SNR regression head uses FC layers of 256 and 128 (ReLU, dropout 0.3) followed by a single linear neuron producing the SNR estimate in dB.
+
+The orchestrated branch includes a pluggable downstream task module. In this work, we instantiate it as a link-adaptation decision block that maps model outputs (class, confidence, and SNR estimate) to a recommended modulation and coding scheme (MCS).
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=2.0\columnwidth]{Image/image_updated.png}
+\caption{Architecture of the proposed multitask model with decision-aware orchestration.}
+\label{fig:architecture}
+\end{figure*}
+
+\subsection{Inference Orchestration}
+
+To align decision flow with cognitive-radio operation, inference is orchestrated in two branches. The first stage receives the I/Q block, applies preprocessing, and runs the WiFi/Noise classifier. If the prediction is Noise, the pipeline terminates with a Noise output. If the prediction is WiFi, the pipeline continues with SNR estimation and a downstream link-adaptation module, producing a consolidated output with class decision, estimated SNR, and recommended transmission profile.
+
+The total loss combines both objectives as $\mathcal{L}_{total} = \mathcal{L}_{cls} + \alpha \cdot \mathcal{L}_{SNR}$ with $\alpha=0.2$, giving reduced relative weight to the regression term for stable joint optimization. Classification uses weighted cross-entropy,
+\begin{equation}
+\mathcal{L}_{cls} = -\sum_{i=1}^{N} w_{y_i} \log(p_{y_i}), \quad w_i = \frac{N_{total}}{N_{classes} \times N_i},
+\end{equation}
+yielding weights of $\approx$1.75 (Noise) and $\approx$0.25 (WiFi). SNR estimation uses standard mean squared error (MSE):
+\begin{equation}
+\mathcal{L}_{SNR} = \frac{1}{N}\sum_{i=1}^{N}(SNR_{pred,i} - SNR_{true,i})^2.
+\end{equation}
+Training used Adaptive Moment Estimation (Adam) (lr\,=\,0.001, weight decay\,=\,0.0002, batch\,=\,32) with cosine annealing, a 5-epoch warmup, and early stopping (patience 20, max 100 epochs). On-the-fly augmentation—time shift, frequency shift, and amplitude scaling—was applied exclusively during training. The model converged at $\approx$85 epochs ($\approx$45~min on Apple Silicon with Metal Performance Shaders (MPS)), following a rapid loss reduction in the first 15--20 epochs and a stable refinement stage thereafter; the small train/validation gap in later epochs indicates limited overfitting despite the modest dataset size and class imbalance.
+
+\section{Experimental Results}
+
+All experiments were conducted using PyTorch 2.6 on a 14-inch MacBook Pro running macOS, equipped with an Apple M3 system-on-chip (8-core CPU, 10-core GPU), 16~GB unified memory, and 1~TB SSD storage, using Metal Performance Shaders (MPS) acceleration. The random seed was fixed to 42 to ensure reproducibility. Table~\ref{tab:classification_results} summarizes the classification results on the 377-sample test set.
+
+The model attains perfect precision on the WiFi class and 95.76\% recall, with the 14 false negatives concentrated in low-SNR edge cases. Noise recall is also perfect, at the cost of a lower precision of 77.05\%, reflecting a conservative decision boundary. This asymmetric error behavior is intentional and operationally desirable for cognitive radio: the system never falsely declares a vacant channel as WiFi-occupied, while occasionally treating weak WiFi signals as noise—an acceptable trade-off when protecting primary users from interference. The macro and weighted F1-scores stand at 0.92 and 0.96, respectively.
+
+\begin{table}[!t]
+\centering
+\caption{Detailed Classification Performance on Test Set (377 samples)}
+\label{tab:classification_results}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Class} & \textbf{Precision} & \textbf{Recall} & \textbf{F1-Score} \\
+\midrule
+Noise & 0.7705 & 1.0000 & 0.8704 \\
+WiFi & 1.0000 & 0.9576 & 0.9783 \\
+\midrule
+\textbf{Macro Avg} & \textbf{0.8852} & \textbf{0.9788} & \textbf{0.9243} \\
+\textbf{Weighted Avg} & \textbf{0.9714} & \textbf{0.9629} & \textbf{0.9649} \\
+\textbf{Accuracy} & \multicolumn{3}{c}{\textbf{96.29\%}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{SNR Estimation}
+
+The regression head achieves a mean absolute error of 0.32~dB and a mean squared error of 0.17~dB$^2$, placing predictions within half a decibel of the true values across the test set. Notably, this performance is obtained with $\alpha = 0.2$, meaning only 20\% of the total gradient signal during training was dedicated to the SNR objective. The fact that the shared backbone encodes sufficient signal quality information for this level of accuracy—without an exclusive feature extractor—validates the core premise of the multitask design.
+
+\subsection{Downstream Decision Module}
+
+Using the orchestrated branch, we implemented a deterministic link-adaptation module that activates after the first-stage classifier and maps SNR estimates plus classifier confidence to MCS recommendations, while deferring transmission under low-confidence conditions. Beyond unit/integration checks (20/20 passed) and deterministic validation (7/7 canonical cases), we evaluated decision distribution on real test data (\texttt{sdr\_wifi\_test.hdf5}, 31,997 samples). This decision-level evaluation uses all available windows in the provided test HDF5 file and is therefore reported separately from the 377-sample split used for the core classification metrics. Table~\ref{tab:downstream_distribution} summarizes downstream outcomes.
+
+\begin{table}[!t]
+\centering
+\caption{Downstream Decision Distribution on Real Test Data}
+\label{tab:downstream_distribution}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Decision status} & \textbf{Count} & \textbf{Percent} \\
+\midrule
+ok      & 24,856 & 77.68\% \\
+skipped & 7,011  & 21.91\% \\
+deferred& 130    & 0.41\% \\
+\midrule
+\textbf{Total} & \textbf{31,997} & \textbf{100\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+For samples with \texttt{ok} decisions, the recommended MCS distribution concentrated on MCS6 (43.14\%) and MCS5 (34.54\%), with marginal MCS7 recommendations (0.01\%). This behavior indicates that the downstream module remains active on the majority of non-noise predictions while using confidence gating conservatively.
+
+We additionally performed a lightweight grid-search policy tuning over confidence threshold and global SNR offset, using the same real test file. Relative to the baseline policy (\texttt{min\_confidence}=0.60, \texttt{snr\_offset}=0.0), the selected policy (\texttt{min\_confidence}=0.55, \texttt{snr\_offset}=+4.0~dB) improved decision utility from 0.600 to 0.662 (+10.3\%), reduced deferred decisions from 130 to 70 samples (-46.2\%), and increased the mean recommended MCS index from 5.56 to 7.00.
+
+\subsection{Ablation Studies}
+
+Three controlled ablations quantify the contribution of each design decision. Removing the class-weighted loss caused Noise recall to drop from 100\% to approximately 78\% and overall accuracy from 96.29\% to roughly 94\%---a 22-point collapse in minority-class performance that would be operationally unacceptable in a cognitive radio deployment, where a missed Noise detection directly forfeits a transmission opportunity. Disabling data augmentation produced a smaller but consistent degradation of 2.14 percentage points (96.29\% to 94.15\%), confirming that time shift, frequency shift, and amplitude scaling provide meaningful regularization at this dataset scale. Finally, replacing the multitask model with two independent single-task models increased total parameters from 3.93M to 4.55M (+13.6\%) while yielding nearly identical predictive quality (96.21\% accuracy and 0.31~dB MAE), indicating that shared features reduce duplication without degrading performance.
+
+\subsection{Comparative Analysis}
+
+The proposed model's 96.29\% accuracy outperforms Jeevangi et al.~\cite{jeevangi2022deep} (92.5\%), Kim et al.~\cite{kim2020deep} (91.3\%), and Li et al.~\cite{li2020deep} (89.7\%). DSINet~\cite{kim2023multitask} reaches 98.2\%, but does so on synthetic data, whereas our result is obtained on real SDR captures. On the SNR estimation side, our 0.32~dB MAE represents a substantial improvement over Chen et al.~\cite{chen2021multitask} (1.5~dB) and Jeevangi et al.~\cite{jeevangi2022deep} (1.2~dB). In terms of size, our quantized benchmark footprint (618,432 parameters) is more favorable for practical deployment scenarios, while the base model benefits from reduced duplication versus separate-task deployment.
+
+\section{Discussion}
+
+The multitask design translates to a single unified inference path with shared representations for detection and channel quality assessment, reducing model duplication versus separate-task deployment (4.55M to 3.93M parameters in our configuration). The conservative error pattern that emerges from the weighted loss is operationally desirable: the model produces no false positives for WiFi (i.e., it does not incorrectly label vacant channels as occupied), and the 14 false negatives are confined to low-SNR edge cases where signal energy approaches the noise floor. Training on real SDR captures, rather than simulated signals, directly addresses the simulation-to-reality gap documented by O'Shea et al.~\cite{oshea2018over}, though generalization across different radio environments remains an open question.
+
+From a practical standpoint, classifying a 128-sample I/Q block—equivalent to approximately 6.4~$\mu$s at WiFi sampling rates—takes roughly 2.3~ms on the evaluation platform (Apple Silicon). Although this timing is platform-dependent, it indicates that inference overhead remains small relative to typical sensing-and-decision loops in cognitive radio operation. Alternatives to weighted cross-entropy such as Synthetic Minority Over-sampling Technique (SMOTE) or cost-sensitive learning merit investigation for scenarios with more severe class imbalance.
+
+\section{Conclusion}
+
+We presented a multitask deep learning framework that simultaneously addresses WiFi detection and SNR estimation from real SDR captures, achieving 96.29\% classification accuracy and 0.32~dB mean absolute error. The proposed orchestration flow selectively triggers a downstream link-adaptation decision only for WiFi-positive detections, aligning processing cost with decision relevance. The base configuration contains 3.93M parameters, while the quantized benchmark configuration reports an effective footprint of 618,432 parameters. Relative to an equivalent two-model single-task baseline, the shared base architecture reduces total parameters by 13.6\% (4.55M to 3.93M) without measurable performance loss. Class-weighted cross-entropy restored a 22-point drop in minority-class recall caused by training imbalance, and on-the-fly data augmentation contributed an additional 2.14 percentage points of accuracy. Future work will integrate learned downstream policies, extend the framework to multi-class scenarios covering LTE and BLE waveforms, and investigate attention-based backbone designs.
+
+\section*{Acknowledgment}
+
+We acknowledge the use of real-world SDR datasets for this research. The dataset contains Software-Defined Radio captured signals enabling realistic wireless-channel algorithm evaluation. We thank the reviewers for constructive feedback that improved this manuscript.
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}
